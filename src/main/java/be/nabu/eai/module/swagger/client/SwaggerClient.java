@@ -8,8 +8,8 @@ import be.nabu.eai.repository.artifacts.jaxb.JAXBArtifact;
 import be.nabu.libs.resources.api.ReadableResource;
 import be.nabu.libs.resources.api.Resource;
 import be.nabu.libs.resources.api.ResourceContainer;
-import be.nabu.libs.swagger.SwaggerParser;
 import be.nabu.libs.swagger.api.SwaggerDefinition;
+import be.nabu.libs.swagger.parser.SwaggerParser;
 import be.nabu.utils.io.IOUtils;
 
 public class SwaggerClient extends JAXBArtifact<SwaggerClientConfiguration> {
