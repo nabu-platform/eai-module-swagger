@@ -112,7 +112,7 @@ public class SwaggerInterface implements DefinedServiceInterface {
 				output.add(new ComplexElementImpl(responseName, responses, output, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
 			}
 		}
-			
+
 		this.output = output;
 	}
 	

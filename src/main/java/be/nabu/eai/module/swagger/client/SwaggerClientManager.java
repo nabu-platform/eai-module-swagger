@@ -13,6 +13,7 @@ import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.managers.base.JAXBArtifactManager;
 import be.nabu.eai.repository.resources.MemoryEntry;
 import be.nabu.libs.resources.api.ResourceContainer;
+import be.nabu.libs.swagger.SwaggerParser;
 import be.nabu.libs.swagger.api.SwaggerMethod;
 import be.nabu.libs.swagger.api.SwaggerPath;
 import be.nabu.libs.types.api.ComplexType;
@@ -35,11 +36,12 @@ public class SwaggerClientManager extends JAXBArtifactManager<SwaggerClientConfi
 			
 			for (SwaggerPath path : artifact.getDefinition().getPaths()) {
 				for (SwaggerMethod method : path.getMethods()) {
-					final String ifaceId = interfaces.getId() + "." + method.getOperationId();
+					String prettifiedName = SwaggerParser.cleanup(method.getOperationId());
+					final String ifaceId = interfaces.getId() + "." + prettifiedName;
 					EAINode node = new EAINode();
 					node.setArtifact(new SwaggerInterface(ifaceId, artifact.getDefinition(), path, method));
 					node.setLeaf(true);
-					MemoryEntry entry = new MemoryEntry(services.getRepository(), interfaces, node, ifaceId, method.getOperationId());
+					MemoryEntry entry = new MemoryEntry(services.getRepository(), interfaces, node, ifaceId, prettifiedName);
 					node.setEntry(entry);
 					interfaces.addChildren(entry);
 					entries.add(entry);
