@@ -38,20 +38,17 @@ public class SwaggerService implements DefinedService {
 
 	@Override
 	public ServiceInstance newInstance() {
-		// TODO Auto-generated method stub
-		return null;
+		return new SwaggerServiceInstance(this);
 	}
 
 	@Override
 	public Set<String> getReferences() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public String getId() {
-		// TODO Auto-generated method stub
-		return null;
+		return id;
 	}
 
 }

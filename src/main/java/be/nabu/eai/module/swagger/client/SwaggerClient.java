@@ -8,7 +8,7 @@ import be.nabu.eai.repository.artifacts.jaxb.JAXBArtifact;
 import be.nabu.libs.resources.api.ReadableResource;
 import be.nabu.libs.resources.api.Resource;
 import be.nabu.libs.resources.api.ResourceContainer;
-import be.nabu.libs.swagger.SwaggerDefinitionImpl;
+import be.nabu.libs.swagger.SwaggerParser;
 import be.nabu.libs.swagger.api.SwaggerDefinition;
 import be.nabu.utils.io.IOUtils;
 
@@ -28,7 +28,7 @@ public class SwaggerClient extends JAXBArtifact<SwaggerClientConfiguration> {
 					if (definition == null) {
 						InputStream input = IOUtils.toInputStream(((ReadableResource) child).getReadable());
 						try {
-							definition = SwaggerDefinitionImpl.parse(getId(), input);
+							definition = SwaggerParser.parse(getId(), input);
 						}
 						finally {
 							input.close();
