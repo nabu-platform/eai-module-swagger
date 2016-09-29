@@ -31,24 +31,16 @@ public class SwaggerClientManager extends JAXBArtifactManager<SwaggerClientConfi
 		List<Entry> entries = new ArrayList<Entry>();
 		((EAINode) root.getNode()).setLeaf(false);
 		if (artifact.getDefinition() != null) {
-			MemoryEntry interfaces = new MemoryEntry(root.getRepository(), root, null, root.getId() + ".interfaces", "interfaces");
 			MemoryEntry services = new MemoryEntry(root.getRepository(), root, null, root.getId() + ".services", "services");
 			
 			for (SwaggerPath path : artifact.getDefinition().getPaths()) {
 				for (SwaggerMethod method : path.getMethods()) {
 					String prettifiedName = SwaggerParser.cleanup(method.getOperationId());
-					final String ifaceId = interfaces.getId() + "." + prettifiedName;
-					EAINode node = new EAINode();
-					node.setArtifact(new SwaggerInterface(ifaceId, artifact.getDefinition(), path, method));
-					node.setLeaf(true);
-					MemoryEntry entry = new MemoryEntry(services.getRepository(), interfaces, node, ifaceId, prettifiedName);
-					node.setEntry(entry);
-					interfaces.addChildren(entry);
-					entries.add(entry);
+					final String ifaceId = root.getId() + ".interfaces." + prettifiedName;
+					addInterface(root, artifact, entries, new SwaggerInterface(ifaceId, artifact.getDefinition(), path, method));
 				}
 			}
 			
-			root.addChildren(interfaces);
 			root.addChildren(services);
 			
 			for (String namespace : artifact.getDefinition().getRegistry().getNamespaces()) {
@@ -65,6 +57,21 @@ public class SwaggerClientManager extends JAXBArtifactManager<SwaggerClientConfi
 			}
 		}
 		return entries;
+	}
+	
+	private void addInterface(ModifiableEntry root, SwaggerClient artifact, List<Entry> entries, SwaggerInterface iface) {
+		String id = iface.getId();
+		if (id.startsWith(artifact.getId() + ".")) {
+			String parentId = id.replaceAll("\\.[^.]+$", "");
+			ModifiableEntry parent = EAIRepositoryUtils.getParent(root, id.substring(artifact.getId().length() + 1), false);
+			EAINode node = new EAINode();
+			node.setArtifact(iface);
+			node.setLeaf(true);
+			MemoryEntry entry = new MemoryEntry(root.getRepository(), parent, node, id, id.substring(parentId.length() + 1));
+			node.setEntry(entry);
+			parent.addChildren(entry);
+			entries.add(entry);
+		}
 	}
 	
 	private void addType(ModifiableEntry root, SwaggerClient artifact, List<Entry> entries, DefinedType type) {
