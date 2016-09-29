@@ -195,10 +195,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 									additionalHeaders.add(new MimeHeader(parameter.getName(), value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class)));
 								break;
 								case PATH:
-									System.out.println("PATH BEFORE: " + path);
 									path = path.replaceAll("\\{[\\s]*" + Pattern.quote(parameter.getName()) + "\\b[^}]*\\}", Matcher.quoteReplacement(value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class)));
-									System.out.println("PATH AFTER: " + path);
-									System.out.println("REGEX: " + "\\{[\\s]*" + Pattern.quote(parameter.getName()) + "\\b[^}]*\\}");
 								break;
 								case QUERY:
 									if (value instanceof Iterable) {
