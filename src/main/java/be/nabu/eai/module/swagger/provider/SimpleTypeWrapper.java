@@ -5,11 +5,12 @@ import java.util.Set;
 
 import be.nabu.libs.property.api.Property;
 import be.nabu.libs.property.api.Value;
+import be.nabu.libs.types.api.DefinedType;
 import be.nabu.libs.types.api.Marshallable;
 import be.nabu.libs.types.api.Type;
 import be.nabu.libs.validator.api.Validator;
 
-public class SimpleTypeWrapper<T> implements Marshallable<T> {
+public class SimpleTypeWrapper<T> implements Marshallable<T>, DefinedType {
 	
 	private Marshallable<T> parent;
 	private String namespace;
@@ -69,6 +70,11 @@ public class SimpleTypeWrapper<T> implements Marshallable<T> {
 	@Override
 	public String marshal(T object, Value<?>... values) {
 		return parent.marshal(object, values);
+	}
+
+	@Override
+	public String getId() {
+		return ((DefinedType) parent).getId();
 	}
 
 }

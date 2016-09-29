@@ -8,12 +8,13 @@ import be.nabu.libs.property.api.Property;
 import be.nabu.libs.property.api.Value;
 import be.nabu.libs.types.api.ComplexContent;
 import be.nabu.libs.types.api.ComplexType;
+import be.nabu.libs.types.api.DefinedType;
 import be.nabu.libs.types.api.Element;
 import be.nabu.libs.types.api.Group;
 import be.nabu.libs.types.api.Type;
 import be.nabu.libs.validator.api.Validator;
 
-public class ComplexTypeWrapper implements ComplexType {
+public class ComplexTypeWrapper implements ComplexType, DefinedType {
 
 	private ComplexType parent;
 	private String namespace;
@@ -93,6 +94,11 @@ public class ComplexTypeWrapper implements ComplexType {
 	@Override
 	public Group[] getGroups() {
 		return parent.getGroups();
+	}
+
+	@Override
+	public String getId() {
+		return ((DefinedType) parent).getId();
 	}
 
 }

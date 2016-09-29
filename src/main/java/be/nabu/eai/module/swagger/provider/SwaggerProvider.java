@@ -49,7 +49,9 @@ import be.nabu.libs.swagger.parser.SwaggerSecuritySettingImpl;
 import be.nabu.libs.types.SimpleTypeWrapperFactory;
 import be.nabu.libs.types.TypeRegistryImpl;
 import be.nabu.libs.types.api.ComplexType;
+import be.nabu.libs.types.api.Marshallable;
 import be.nabu.libs.types.api.ModifiableTypeRegistry;
+import be.nabu.libs.types.api.SimpleType;
 import be.nabu.libs.types.base.ComplexElementImpl;
 import be.nabu.libs.types.base.SimpleElementImpl;
 import be.nabu.libs.types.base.ValueImpl;
@@ -147,6 +149,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		return swaggers.get(key);
 	}
 	
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private List<SwaggerPath> analyzePaths(ModifiableTypeRegistry registry, List<WebFragment> fragments, String path) {
 		List<SwaggerPath> paths = new ArrayList<SwaggerPath>();
 		for (WebFragment fragment : fragments) {
@@ -185,6 +188,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						if (headerParams != null) {
 							for (String headerParam : headerParams.split("[\\s]*,[\\s]*")) {
 								SwaggerParameterImpl parameter = new SwaggerParameterImpl();
+								parameter.setName(headerParam);
 								parameter.setLocation(ParameterLocation.HEADER);
 								parameter.setElement(new SimpleElementImpl<String>(headerParam, SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), null,
 									new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
@@ -195,6 +199,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						if (queryParams != null) {
 							for (String queryParam : queryParams.split("[\\s]*,[\\s]*")) {
 								SwaggerParameterImpl parameter = new SwaggerParameterImpl();
+								parameter.setName(queryParam);
 								parameter.setLocation(ParameterLocation.QUERY);
 								parameter.setElement(new SimpleElementImpl<String>(queryParam, SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), null,
 									new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
@@ -206,19 +211,27 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							Matcher matcher = pattern.matcher(iface.getConfig().getPath());
 							while (matcher.find()) {
 								SwaggerParameterImpl parameter = new SwaggerParameterImpl();
+								parameter.setName(matcher.group(1).replaceAll("[\\s]*:.*$", ""));
 								parameter.setLocation(ParameterLocation.PATH);
-								parameter.setElement(new SimpleElementImpl<String>(matcher.group(1), SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), null));
+								parameter.setElement(new SimpleElementImpl<String>(parameter.getName(), SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), null));
 								parameters.add(parameter);
 							}
 						}
 						if (iface.getConfig().getInputAsStream() != null && iface.getConfig().getInputAsStream()) {
 							SwaggerParameterImpl parameter = new SwaggerParameterImpl();
+							parameter.setName("body");
 							parameter.setLocation(ParameterLocation.BODY);
-							parameter.setElement(new SimpleElementImpl<byte[]>("body", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(byte[].class), null));
+							SimpleType<?> binaryType = registry.getSimpleType(getId(), "binary");
+							if (binaryType == null) {
+								binaryType = new SimpleTypeWrapper<byte[]>((Marshallable<byte[]>) SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(byte[].class), getId(), "binary");
+								registry.register(binaryType);
+							}
+							parameter.setElement(new SimpleElementImpl("body", binaryType, null));
 							parameters.add(parameter);
 						}
 						else if (iface.getConfig().getInput() != null) {
 							SwaggerParameterImpl parameter = new SwaggerParameterImpl();
+							parameter.setName("body");
 							parameter.setLocation(ParameterLocation.BODY);
 							ComplexType complexType = registry.getComplexType(getId(), iface.getConfig().getInput().getId());
 							if (complexType == null) {
@@ -245,21 +258,35 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							responses.add(c403);
 						}
 						
-						SwaggerResponseImpl c200 = new SwaggerResponseImpl();
-						c200.setCode(200);
-						c200.setDescription("The request was successful");
-						if (iface.getConfig().getOutputAsStream() != null && iface.getConfig().getOutputAsStream()) {
-							c200.setElement(new SimpleElementImpl<byte[]>("body", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(byte[].class), null));
-						}
-						else if (iface.getConfig().getOutput() != null) {
-							ComplexType complexType = registry.getComplexType(getId(), iface.getConfig().getOutput().getId());
-							if (complexType == null) {
-								complexType = new ComplexTypeWrapper((ComplexType) iface.getConfig().getOutput(), getId(), iface.getConfig().getOutput().getId());
-								registry.register(complexType);
+						// there is some content
+						if ((iface.getConfig().getOutputAsStream() != null && iface.getConfig().getOutputAsStream()) || iface.getConfig().getOutput() != null) {
+							SwaggerResponseImpl c200 = new SwaggerResponseImpl();
+							c200.setCode(200);
+							c200.setDescription("The request was successful");
+							if (iface.getConfig().getOutputAsStream() != null && iface.getConfig().getOutputAsStream()) {
+								SimpleType<?> binaryType = registry.getSimpleType(getId(), "binary");
+								if (binaryType == null) {
+									binaryType = new SimpleTypeWrapper<byte[]>((Marshallable<byte[]>) SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(byte[].class), getId(), "binary");
+									registry.register(binaryType);
+								}
+								c200.setElement(new SimpleElementImpl("body", binaryType, null));
 							}
-							c200.setElement(new ComplexElementImpl("body", complexType, (ComplexType) null));
+							else if (iface.getConfig().getOutput() != null) {
+								ComplexType complexType = registry.getComplexType(getId(), iface.getConfig().getOutput().getId());
+								if (complexType == null) {
+									complexType = new ComplexTypeWrapper((ComplexType) iface.getConfig().getOutput(), getId(), iface.getConfig().getOutput().getId());
+									registry.register(complexType);
+								}
+								c200.setElement(new ComplexElementImpl("body", complexType, (ComplexType) null));
+							}
+							responses.add(c200);
 						}
-						responses.add(c200);
+						
+						// every response can lead to an empty return (theoretically)
+						SwaggerResponseImpl c204 = new SwaggerResponseImpl();
+						c204.setCode(204);
+						c204.setDescription("The request was successful but no content will be returned");
+						responses.add(c204);
 						
 						// if it is a get, we can return a 304
 						if (iface.getConfig().getMethod() == WebMethod.GET) {
