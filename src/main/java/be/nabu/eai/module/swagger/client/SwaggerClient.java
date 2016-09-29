@@ -28,7 +28,7 @@ public class SwaggerClient extends JAXBArtifact<SwaggerClientConfiguration> {
 					if (definition == null) {
 						InputStream input = IOUtils.toInputStream(((ReadableResource) child).getReadable());
 						try {
-							definition = SwaggerParser.parse(getId(), input);
+							definition = new SwaggerParser().parse(getId(), input);
 						}
 						finally {
 							input.close();

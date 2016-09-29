@@ -220,7 +220,9 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						else if (iface.getConfig().getInput() != null) {
 							SwaggerParameterImpl parameter = new SwaggerParameterImpl();
 							parameter.setLocation(ParameterLocation.BODY);
-							parameter.setElement(new ComplexElementImpl("body", (ComplexType) iface.getConfig().getInput(), (ComplexType) null));
+							ComplexType complexType = new ComplexTypeWrapper((ComplexType) iface.getConfig().getInput(), getId(), iface.getConfig().getInput().getId());
+							registry.register(complexType);
+							parameter.setElement(new ComplexElementImpl("body", complexType, (ComplexType) null));
 							parameters.add(parameter);
 						}
 						method.setParameters(parameters);
@@ -247,7 +249,9 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							c200.setElement(new SimpleElementImpl<byte[]>("body", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(byte[].class), null));
 						}
 						else if (iface.getConfig().getOutput() != null) {
-							c200.setElement(new ComplexElementImpl("body", (ComplexType) iface.getConfig().getOutput(), (ComplexType) null));
+							ComplexType complexType = new ComplexTypeWrapper((ComplexType) iface.getConfig().getInput(), getId(), iface.getConfig().getInput().getId());
+							registry.register(complexType);
+							c200.setElement(new ComplexElementImpl("body", complexType, (ComplexType) null));
 						}
 						responses.add(c200);
 						
