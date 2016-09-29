@@ -137,6 +137,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						ByteArrayOutputStream output = new ByteArrayOutputStream();
 						SwaggerFormatter swaggerFormatter = new SwaggerFormatter();
 						swaggerFormatter.setExpandInline(true);
+						swaggerFormatter.setAllowDefinedTypeReferences(true);
 						swaggerFormatter.format(definition, output);
 						swaggers.put(key, new String(output.toByteArray(), "UTF-8"));
 					}
