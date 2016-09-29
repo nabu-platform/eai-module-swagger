@@ -12,6 +12,7 @@ import be.nabu.eai.repository.api.ModifiableEntry;
 import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.managers.base.JAXBArtifactManager;
 import be.nabu.eai.repository.resources.MemoryEntry;
+import be.nabu.libs.artifacts.api.Artifact;
 import be.nabu.libs.resources.api.ResourceContainer;
 import be.nabu.libs.swagger.api.SwaggerMethod;
 import be.nabu.libs.swagger.api.SwaggerPath;
@@ -36,8 +37,9 @@ public class SwaggerClientManager extends JAXBArtifactManager<SwaggerClientConfi
 			for (SwaggerPath path : artifact.getDefinition().getPaths()) {
 				for (SwaggerMethod method : path.getMethods()) {
 					String prettifiedName = SwaggerParser.cleanup(method.getOperationId());
-					final String ifaceId = root.getId() + ".interfaces." + prettifiedName;
-					addInterface(root, artifact, entries, new SwaggerInterface(ifaceId, artifact.getDefinition(), path, method));
+					SwaggerProxyInterface iface = new SwaggerProxyInterface(root.getId() + ".interfaces." + prettifiedName, artifact.getDefinition(), path, method);
+					addChild(root, artifact, entries, iface);
+					addChild(root, artifact, entries, new SwaggerService(root.getId() + ".services." + prettifiedName, artifact, path, method));
 				}
 			}
 			
@@ -46,12 +48,12 @@ public class SwaggerClientManager extends JAXBArtifactManager<SwaggerClientConfi
 			for (String namespace : artifact.getDefinition().getRegistry().getNamespaces()) {
 				for (ComplexType type : artifact.getDefinition().getRegistry().getComplexTypes(namespace)) {
 					if (type instanceof DefinedType) {
-						addType(root, artifact, entries, (DefinedType) type);
+						addChild(root, artifact, entries, (DefinedType) type);
 					}
 				}
 				for (SimpleType<?> type : artifact.getDefinition().getRegistry().getSimpleTypes(namespace)) {
 					if (type instanceof DefinedType) {
-						addType(root, artifact, entries, (DefinedType) type);
+						addChild(root, artifact, entries, (DefinedType) type);
 					}
 				}
 			}
@@ -59,13 +61,13 @@ public class SwaggerClientManager extends JAXBArtifactManager<SwaggerClientConfi
 		return entries;
 	}
 	
-	private void addInterface(ModifiableEntry root, SwaggerClient artifact, List<Entry> entries, SwaggerInterface iface) {
-		String id = iface.getId();
+	private void addChild(ModifiableEntry root, SwaggerClient artifact, List<Entry> entries, Artifact child) {
+		String id = child.getId();
 		if (id.startsWith(artifact.getId() + ".")) {
 			String parentId = id.replaceAll("\\.[^.]+$", "");
 			ModifiableEntry parent = EAIRepositoryUtils.getParent(root, id.substring(artifact.getId().length() + 1), false);
 			EAINode node = new EAINode();
-			node.setArtifact(iface);
+			node.setArtifact(child);
 			node.setLeaf(true);
 			MemoryEntry entry = new MemoryEntry(root.getRepository(), parent, node, id, id.substring(parentId.length() + 1));
 			node.setEntry(entry);
@@ -74,21 +76,6 @@ public class SwaggerClientManager extends JAXBArtifactManager<SwaggerClientConfi
 		}
 	}
 	
-	private void addType(ModifiableEntry root, SwaggerClient artifact, List<Entry> entries, DefinedType type) {
-		String id = ((DefinedType) type).getId();
-		if (id.startsWith(artifact.getId() + ".")) {
-			String parentId = id.replaceAll("\\.[^.]+$", "");
-			ModifiableEntry parent = EAIRepositoryUtils.getParent(root, id.substring(artifact.getId().length() + 1), false);
-			EAINode node = new EAINode();
-			node.setArtifact(type);
-			node.setLeaf(true);
-			MemoryEntry entry = new MemoryEntry(root.getRepository(), parent, node, id, id.substring(parentId.length() + 1));
-			node.setEntry(entry);
-			parent.addChildren(entry);
-			entries.add(entry);
-		}
-	}
-
 	@Override
 	public List<Entry> removeChildren(ModifiableEntry parent, SwaggerClient artifact) throws IOException {
 		List<Entry> entries = new ArrayList<Entry>();

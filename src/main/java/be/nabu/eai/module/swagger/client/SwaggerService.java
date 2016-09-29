@@ -5,21 +5,20 @@ import java.util.Set;
 import be.nabu.libs.services.api.DefinedService;
 import be.nabu.libs.services.api.ServiceInstance;
 import be.nabu.libs.services.api.ServiceInterface;
-import be.nabu.libs.swagger.api.SwaggerDefinition;
 import be.nabu.libs.swagger.api.SwaggerMethod;
 import be.nabu.libs.swagger.api.SwaggerPath;
 
 public class SwaggerService implements DefinedService {
 
 	private String id;
-	private SwaggerDefinition definition;
 	private SwaggerPath path;
 	private SwaggerMethod method;
-	private SwaggerInterface iface;
+	private SwaggerProxyInterface iface;
+	private SwaggerClient client;
 
-	public SwaggerService(String id, SwaggerDefinition definition, SwaggerPath path, SwaggerMethod method) {
+	public SwaggerService(String id, SwaggerClient client, SwaggerPath path, SwaggerMethod method) {
 		this.id = id;
-		this.definition = definition;
+		this.client = client;
 		this.path = path;
 		this.method = method;
 	}
@@ -29,7 +28,7 @@ public class SwaggerService implements DefinedService {
 		if (iface != null) {
 			synchronized(this) {
 				if (iface != null) {
-					iface = new SwaggerInterface(id, definition, path, method);
+					iface = new SwaggerServiceInterface(id, client.getDefinition(), path, method);
 				}
 			}
 		}
@@ -49,6 +48,18 @@ public class SwaggerService implements DefinedService {
 	@Override
 	public String getId() {
 		return id;
+	}
+
+	public SwaggerClient getClient() {
+		return client;
+	}
+
+	public SwaggerPath getPath() {
+		return path;
+	}
+
+	public SwaggerMethod getMethod() {
+		return method;
 	}
 
 }

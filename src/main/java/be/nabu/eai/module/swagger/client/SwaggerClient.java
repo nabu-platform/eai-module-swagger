@@ -20,18 +20,23 @@ public class SwaggerClient extends JAXBArtifact<SwaggerClientConfiguration> {
 		super(id, directory, repository, "swagger-client.xml", SwaggerClientConfiguration.class);
 	}
 	
-	public SwaggerDefinition getDefinition() throws IOException {
+	public SwaggerDefinition getDefinition() {
 		if (definition == null) {
 			Resource child = getDirectory().getChild("swagger.json");
 			if (child != null) {
 				synchronized(this) {
 					if (definition == null) {
-						InputStream input = IOUtils.toInputStream(((ReadableResource) child).getReadable());
 						try {
-							definition = new SwaggerParser().parse(getId(), input);
+							InputStream input = IOUtils.toInputStream(((ReadableResource) child).getReadable());
+							try {
+								definition = new SwaggerParser().parse(getId(), input);
+							}
+							finally {
+								input.close();
+							}
 						}
-						finally {
-							input.close();
+						catch (IOException e) {
+							throw new RuntimeException(e);
 						}
 					}
 				}

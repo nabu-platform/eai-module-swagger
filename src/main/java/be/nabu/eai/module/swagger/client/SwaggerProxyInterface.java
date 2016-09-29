@@ -19,7 +19,7 @@ import be.nabu.libs.types.base.ValueImpl;
 import be.nabu.libs.types.properties.MinOccursProperty;
 import be.nabu.libs.types.structure.Structure;
 
-public class SwaggerInterface implements DefinedServiceInterface {
+public class SwaggerProxyInterface implements DefinedServiceInterface {
 
 	private SwaggerMethod method;
 	private SwaggerDefinition definition;
@@ -28,17 +28,17 @@ public class SwaggerInterface implements DefinedServiceInterface {
 
 	private Structure input, output;
 	
-	public SwaggerInterface(String id, SwaggerDefinition definition, SwaggerPath path, SwaggerMethod method) {
+	public SwaggerProxyInterface(String id, SwaggerDefinition definition, SwaggerPath path, SwaggerMethod method) {
 		this.id = id;
 		this.definition = definition;
 		this.path = path;
 		this.method = method;
 		
-		initializeInput();
-		initializeOutput();
+		this.input = initializeInput();
+		this.output = initializeOutput();
 	}
 	
-	private void initializeInput() {
+	protected Structure initializeInput() {
 		Structure input = new Structure();
 		input.setName("input");
 
@@ -77,7 +77,7 @@ public class SwaggerInterface implements DefinedServiceInterface {
 			input.add(new ComplexElementImpl("authentication", authentication, input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
 		}
 		
-		this.input = input;
+		return input;
 	}
 	
 	public static String formattedCode(SwaggerResponse response) {
@@ -89,7 +89,7 @@ public class SwaggerInterface implements DefinedServiceInterface {
 		return name;
 	}
 	
-	private void initializeOutput() {
+	protected Structure initializeOutput() {
 		Structure output = new Structure();
 		output.setName("output");
 		
@@ -113,7 +113,7 @@ public class SwaggerInterface implements DefinedServiceInterface {
 			}
 		}
 
-		this.output = output;
+		return output;
 	}
 	
 	@Override

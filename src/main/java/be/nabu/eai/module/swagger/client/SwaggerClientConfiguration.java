@@ -12,9 +12,11 @@ import be.nabu.eai.repository.jaxb.CharsetAdapter;
 
 @XmlRootElement(name = "swaggerClient")
 public class SwaggerClientConfiguration {
+	
 	private HTTPClientArtifact httpClient;
 	private Charset charset;
 	private String username, password;
+	private Boolean supportGzip, sanitizeOutput;
 	
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
 	public HTTPClientArtifact getHttpClient() {
@@ -48,4 +50,19 @@ public class SwaggerClientConfiguration {
 		this.password = password;
 	}
 	
+	@EnvironmentSpecific
+	public Boolean getSupportGzip() {
+		return supportGzip;
+	}
+	public void setSupportGzip(Boolean supportGzip) {
+		this.supportGzip = supportGzip;
+	}
+
+	public Boolean getSanitizeOutput() {
+		return sanitizeOutput;
+	}
+	public void setSanitizeOutput(Boolean sanitizeOutput) {
+		this.sanitizeOutput = sanitizeOutput;
+	}
+
 }
