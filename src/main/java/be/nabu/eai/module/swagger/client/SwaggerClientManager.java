@@ -32,8 +32,6 @@ public class SwaggerClientManager extends JAXBArtifactManager<SwaggerClientConfi
 		List<Entry> entries = new ArrayList<Entry>();
 		((EAINode) root.getNode()).setLeaf(false);
 		if (artifact.getDefinition() != null) {
-			MemoryEntry services = new MemoryEntry(root.getRepository(), root, null, root.getId() + ".services", "services");
-			
 			for (SwaggerPath path : artifact.getDefinition().getPaths()) {
 				for (SwaggerMethod method : path.getMethods()) {
 					String prettifiedName = SwaggerParser.cleanup(method.getOperationId());
@@ -42,8 +40,6 @@ public class SwaggerClientManager extends JAXBArtifactManager<SwaggerClientConfi
 					addChild(root, artifact, entries, new SwaggerService(root.getId() + ".services." + prettifiedName, artifact, path, method));
 				}
 			}
-			
-			root.addChildren(services);
 			
 			for (String namespace : artifact.getDefinition().getRegistry().getNamespaces()) {
 				for (ComplexType type : artifact.getDefinition().getRegistry().getComplexTypes(namespace)) {

@@ -222,12 +222,12 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							SwaggerParameterImpl parameter = new SwaggerParameterImpl();
 							parameter.setName("body");
 							parameter.setLocation(ParameterLocation.BODY);
-							SimpleType<?> binaryType = registry.getSimpleType(getId(), "binary");
-							if (binaryType == null) {
-								binaryType = new SimpleTypeWrapper<byte[]>((Marshallable<byte[]>) SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(byte[].class), getId(), "binary");
-								registry.register(binaryType);
+							SimpleType<?> bytesType = registry.getSimpleType(getId(), "byte");
+							if (bytesType == null) {
+								bytesType = new SimpleTypeWrapper<byte[]>((Marshallable<byte[]>) SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(byte[].class), getId(), "byte");
+								registry.register(bytesType);
 							}
-							parameter.setElement(new SimpleElementImpl("body", binaryType, null));
+							parameter.setElement(new SimpleElementImpl("body", bytesType, null));
 							parameters.add(parameter);
 						}
 						else if (iface.getConfig().getInput() != null) {
@@ -265,12 +265,12 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							c200.setCode(200);
 							c200.setDescription("The request was successful");
 							if (iface.getConfig().getOutputAsStream() != null && iface.getConfig().getOutputAsStream()) {
-								SimpleType<?> binaryType = registry.getSimpleType(getId(), "binary");
-								if (binaryType == null) {
-									binaryType = new SimpleTypeWrapper<byte[]>((Marshallable<byte[]>) SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(byte[].class), getId(), "binary");
-									registry.register(binaryType);
+								SimpleType<?> bytesType = registry.getSimpleType(getId(), "byte");
+								if (bytesType == null) {
+									bytesType = new SimpleTypeWrapper<byte[]>((Marshallable<byte[]>) SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(byte[].class), getId(), "byte");
+									registry.register(bytesType);
 								}
-								c200.setElement(new SimpleElementImpl("body", binaryType, null));
+								c200.setElement(new SimpleElementImpl("body", bytesType, null));
 							}
 							else if (iface.getConfig().getOutput() != null) {
 								ComplexType complexType = registry.getComplexType(getId(), iface.getConfig().getOutput().getId());
