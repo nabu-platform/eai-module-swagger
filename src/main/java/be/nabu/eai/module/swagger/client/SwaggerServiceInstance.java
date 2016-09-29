@@ -144,8 +144,6 @@ public class SwaggerServiceInstance implements ServiceInstance {
 				charset = Charset.defaultCharset();
 			}
 					
-			Object object = input == null ? null : input.get("content");
-			
 			String path = service.getPath().getPath();
 			if (path == null) {
 				path = "/";
@@ -154,7 +152,8 @@ public class SwaggerServiceInstance implements ServiceInstance {
 			Map<String, String> queryParameters = new HashMap<String, String>();
 
 			ModifiablePart part;
-			if (object instanceof ComplexContent) {
+			Object parameters = input == null ? null : input.get("parameters");
+			if (parameters instanceof ComplexContent) {
 				byte [] content = null;
 				String contentType = null;
 				
@@ -164,7 +163,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 						if (parameter.getElement() == null) {
 							continue;
 						}
-						Object value = ((ComplexContent) object).get(parameter.getElement().getName());
+						Object value = ((ComplexContent) parameters).get(parameter.getElement().getName());
 						if (value != null) {
 							switch (parameter.getLocation()) {
 								case BODY:
@@ -178,7 +177,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 											binding = new FormBinding(bodyContent.getType()); 
 										break;
 										case XML: 
-											XMLBinding xmlBinding = new XMLBinding(((ComplexContent) object).getType(), charset);
+											XMLBinding xmlBinding = new XMLBinding(((ComplexContent) parameters).getType(), charset);
 											binding = xmlBinding;
 										break;
 										default: 
@@ -189,14 +188,17 @@ public class SwaggerServiceInstance implements ServiceInstance {
 											break;
 									}
 									ByteArrayOutputStream output = new ByteArrayOutputStream();
-									binding.marshal(output, (ComplexContent) object);
+									binding.marshal(output, (ComplexContent) parameters);
 									content = output.toByteArray();
 								break;
 								case HEADER: 
 									additionalHeaders.add(new MimeHeader(parameter.getName(), value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class)));
 								break;
 								case PATH:
-									path = path.replaceAll("\\{[\\s]*" + Pattern.quote(parameter.getName()) + "\\b[^}]+}", Matcher.quoteReplacement(value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class)));
+									System.out.println("PATH BEFORE: " + path);
+									path = path.replaceAll("\\{[\\s]*" + Pattern.quote(parameter.getName()) + "\\b[^}]*\\}", Matcher.quoteReplacement(value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class)));
+									System.out.println("PATH AFTER: " + path);
+									System.out.println("REGEX: " + "\\{[\\s]*" + Pattern.quote(parameter.getName()) + "\\b[^}]*\\}");
 								break;
 								case QUERY:
 									if (value instanceof Iterable) {
@@ -234,8 +236,8 @@ public class SwaggerServiceInstance implements ServiceInstance {
 					new MimeHeader("Content-Type", contentType)
 				);
 			}
-			else if (object == null) {
-				part = new PlainMimeEmptyPart(null);
+			else if (parameters == null) {
+				part = new PlainMimeEmptyPart(null, new MimeHeader("Content-Length", "0"));
 			}
 			else {
 				throw new ServiceException("SWAGGER-CLIENT-3", "Invalid content");
@@ -379,23 +381,26 @@ public class SwaggerServiceInstance implements ServiceInstance {
 						jsonBinding.setIgnoreRootIfArrayWrapper(ValueUtils.contains(MaxOccursProperty.getInstance(), chosenResponse.getElement().getType().getProperties()));
 						binding = jsonBinding;
 					}
-					else {
+					else if ("application/xml".equalsIgnoreCase(responseContentType) || "text/xml".equalsIgnoreCase(responseContentType)) {
 						XMLBinding xmlBinding = new XMLBinding((ComplexType) chosenResponse.getElement().getType(), charset);
 						binding = xmlBinding;
+					}
+					else {
+						throw new ServiceException("SWAGGER-5", "Unexpected response content type: " + responseContentType);
 					}
 					
 					ComplexContent unmarshal = binding.unmarshal(IOUtils.toInputStream(((ContentPart) response.getContent()).getReadable()), new Window[0]);
 					if (service.getClient().getConfig().getSanitizeOutput() != null && service.getClient().getConfig().getSanitizeOutput()) {
 						unmarshal = (ComplexContent) GlueListener.sanitize(unmarshal);
 					}
-					output.set(SwaggerProxyInterface.formattedCode(chosenResponse), unmarshal);
+					output.set(SwaggerProxyInterface.formattedCode(chosenResponse) + "/" + chosenResponse.getElement().getName(), unmarshal);
 				}
 				
 				if (chosenResponse.getHeaders() != null) {
 					for (SwaggerParameter header : chosenResponse.getHeaders()) {
 						Header responseHeader = MimeUtils.getHeader(header.getName(), response.getContent().getHeaders());
 						if (responseHeader != null && responseHeader.getValue() != null) {
-							output.set("headers/" + header.getElement().getName(), responseHeader.getValue());
+							output.set(SwaggerProxyInterface.formattedCode(chosenResponse) + "/headers/" + header.getElement().getName(), responseHeader.getValue());
 						}
 					}
 				}
