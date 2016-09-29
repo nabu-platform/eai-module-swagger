@@ -25,9 +25,9 @@ public class SwaggerService implements DefinedService {
 	
 	@Override
 	public ServiceInterface getServiceInterface() {
-		if (iface != null) {
+		if (iface == null) {
 			synchronized(this) {
-				if (iface != null) {
+				if (iface == null) {
 					iface = new SwaggerServiceInterface(id, client.getDefinition(), path, method);
 				}
 			}
