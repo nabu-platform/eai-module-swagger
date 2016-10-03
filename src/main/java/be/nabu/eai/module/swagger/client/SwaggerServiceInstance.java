@@ -222,7 +222,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 									}
 									queryParameters.put(parameter.getName(), value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class));
 								break;
-								case FORM:
+								case FORMDATA:
 									throw new ServiceException("SWAGGER-0", "Form parameters are currently not supported");
 							}
 						}
