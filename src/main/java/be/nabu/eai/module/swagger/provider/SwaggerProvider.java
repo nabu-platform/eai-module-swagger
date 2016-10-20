@@ -9,6 +9,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -31,6 +32,12 @@ import be.nabu.libs.http.core.DefaultHTTPResponse;
 import be.nabu.libs.http.core.HTTPUtils;
 import be.nabu.libs.resources.URIUtils;
 import be.nabu.libs.resources.api.ResourceContainer;
+import be.nabu.libs.services.api.DefinedService;
+import be.nabu.libs.services.api.ExecutionContext;
+import be.nabu.libs.services.api.Service;
+import be.nabu.libs.services.api.ServiceException;
+import be.nabu.libs.services.api.ServiceInstance;
+import be.nabu.libs.services.api.ServiceInterface;
 import be.nabu.libs.swagger.api.SwaggerMethod;
 import be.nabu.libs.swagger.api.SwaggerParameter;
 import be.nabu.libs.swagger.api.SwaggerParameter.ParameterLocation;
@@ -48,6 +55,7 @@ import be.nabu.libs.swagger.parser.SwaggerSecurityDefinitionImpl;
 import be.nabu.libs.swagger.parser.SwaggerSecuritySettingImpl;
 import be.nabu.libs.types.SimpleTypeWrapperFactory;
 import be.nabu.libs.types.TypeRegistryImpl;
+import be.nabu.libs.types.api.ComplexContent;
 import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.Marshallable;
 import be.nabu.libs.types.api.ModifiableTypeRegistry;
@@ -56,11 +64,12 @@ import be.nabu.libs.types.base.ComplexElementImpl;
 import be.nabu.libs.types.base.SimpleElementImpl;
 import be.nabu.libs.types.base.ValueImpl;
 import be.nabu.libs.types.properties.MinOccursProperty;
+import be.nabu.libs.types.structure.Structure;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.mime.impl.MimeHeader;
 import be.nabu.utils.mime.impl.PlainMimeContentPart;
 
-public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> implements WebFragment {
+public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> implements WebFragment, DefinedService {
 
 	private Map<String, EventSubscription<?, ?>> subscriptions = new HashMap<String, EventSubscription<?, ?>>();
 	private Map<String, String> swaggers = new HashMap<String, String>();
@@ -360,5 +369,71 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 			root += path.replaceFirst("^[/]+", "");
 		}
 		return root.replace("//", "/");
+	}
+
+	private Structure input, output;
+	
+	@Override
+	public ServiceInterface getServiceInterface() {
+		if (input == null) {
+			synchronized(this) {
+				if (input == null) {
+					Structure input = new Structure();
+					input.setName("input");
+					input.add(new SimpleElementImpl<String>("webApplicationId", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), input));
+					input.add(new SimpleElementImpl<String>("path", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+					
+					Structure output = new Structure();
+					output.setName("output");
+					output.add(new SimpleElementImpl<String>("swagger", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), output));
+					
+					this.output = output;
+					this.input = input;
+				}
+			}
+		}
+		return new ServiceInterface() {
+			@Override
+			public ComplexType getInputDefinition() {
+				return input;
+			}
+			@Override
+			public ComplexType getOutputDefinition() {
+				return output;
+			}
+			@Override
+			public ServiceInterface getParent() {
+				return null;
+			}
+		};
+	}
+
+	@Override
+	public ServiceInstance newInstance() {
+		return new ServiceInstance() {
+			@Override
+			public Service getDefinition() {
+				return SwaggerProvider.this;
+			}
+
+			@Override
+			public ComplexContent execute(ExecutionContext executionContext, ComplexContent input) throws ServiceException {
+				String webApplicationId = input == null ? null : (String) input.get("webApplicationId");
+				WebApplication application = webApplicationId == null ? null : (WebApplication) getRepository().resolve(webApplicationId);
+				if (application == null) {
+					throw new ServiceException("SWAGGER-0", "Can not find web application: " + webApplicationId);
+				}
+				String path = input == null ? null : (String) input.get("path");
+				ComplexContent output = getServiceInterface().getOutputDefinition().newInstance();
+				output.set("swagger", getSwagger(application, path));
+				return output;
+			}
+			
+		};
+	}
+
+	@Override
+	public Set<String> getReferences() {
+		return null;
 	}
 }
