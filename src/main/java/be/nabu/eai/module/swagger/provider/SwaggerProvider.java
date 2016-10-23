@@ -2,6 +2,7 @@ package be.nabu.eai.module.swagger.provider;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -45,6 +46,7 @@ import be.nabu.libs.swagger.api.SwaggerPath;
 import be.nabu.libs.swagger.api.SwaggerResponse;
 import be.nabu.libs.swagger.api.SwaggerSecurityDefinition.SecurityType;
 import be.nabu.libs.swagger.formatter.SwaggerFormatter;
+import be.nabu.libs.swagger.parser.SimpleTypeExtension;
 import be.nabu.libs.swagger.parser.SwaggerDefinitionImpl;
 import be.nabu.libs.swagger.parser.SwaggerInfoImpl;
 import be.nabu.libs.swagger.parser.SwaggerMethodImpl;
@@ -57,7 +59,6 @@ import be.nabu.libs.types.SimpleTypeWrapperFactory;
 import be.nabu.libs.types.TypeRegistryImpl;
 import be.nabu.libs.types.api.ComplexContent;
 import be.nabu.libs.types.api.ComplexType;
-import be.nabu.libs.types.api.Marshallable;
 import be.nabu.libs.types.api.ModifiableTypeRegistry;
 import be.nabu.libs.types.api.SimpleType;
 import be.nabu.libs.types.base.ComplexElementImpl;
@@ -231,12 +232,12 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							SwaggerParameterImpl parameter = new SwaggerParameterImpl();
 							parameter.setName("body");
 							parameter.setLocation(ParameterLocation.BODY);
-							SimpleType<?> bytesType = registry.getSimpleType(getId(), "byte");
-							if (bytesType == null) {
-								bytesType = new SimpleTypeWrapper<byte[]>((Marshallable<byte[]>) SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(byte[].class), getId(), "byte");
-								registry.register(bytesType);
+							SimpleType<?> binaryType = registry.getSimpleType(getId(), "binary");
+							if (binaryType == null) {
+								binaryType = new SimpleTypeExtension(getId() + ".binary", getId(), "binary", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(InputStream.class));
+								registry.register(binaryType);
 							}
-							parameter.setElement(new SimpleElementImpl("body", bytesType, null));
+							parameter.setElement(new SimpleElementImpl("body", binaryType, null));
 							parameters.add(parameter);
 						}
 						else if (iface.getConfig().getInput() != null) {
@@ -274,12 +275,12 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							c200.setCode(200);
 							c200.setDescription("The request was successful");
 							if (iface.getConfig().getOutputAsStream() != null && iface.getConfig().getOutputAsStream()) {
-								SimpleType<?> bytesType = registry.getSimpleType(getId(), "byte");
-								if (bytesType == null) {
-									bytesType = new SimpleTypeWrapper<byte[]>((Marshallable<byte[]>) SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(byte[].class), getId(), "byte");
-									registry.register(bytesType);
+								SimpleType<?> binaryType = registry.getSimpleType(getId(), "binary");
+								if (binaryType == null) {
+									binaryType = new SimpleTypeExtension(getId() + ".binary", getId(), "binary", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(InputStream.class));
+									registry.register(binaryType);
 								}
-								c200.setElement(new SimpleElementImpl("body", bytesType, null));
+								c200.setElement(new SimpleElementImpl("body", binaryType, null));
 							}
 							else if (iface.getConfig().getOutput() != null) {
 								ComplexType complexType = registry.getComplexType(getId(), iface.getConfig().getOutput().getId());
