@@ -237,6 +237,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 								binaryType = new SimpleTypeExtension(getId() + ".binary", getId(), "binary", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(InputStream.class));
 								registry.register(binaryType);
 							}
+							method.setConsumes(Arrays.asList("application/octet-stream"));
 							parameter.setElement(new SimpleElementImpl("body", binaryType, null));
 							parameters.add(parameter);
 						}
@@ -275,6 +276,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							c200.setCode(200);
 							c200.setDescription("The request was successful");
 							if (iface.getConfig().getOutputAsStream() != null && iface.getConfig().getOutputAsStream()) {
+								method.setProduces(Arrays.asList("application/octet-stream"));
 								SimpleType<?> binaryType = registry.getSimpleType(getId(), "binary");
 								if (binaryType == null) {
 									binaryType = new SimpleTypeExtension(getId() + ".binary", getId(), "binary", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(InputStream.class));

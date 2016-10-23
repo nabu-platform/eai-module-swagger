@@ -1,6 +1,7 @@
 package be.nabu.eai.module.swagger.client;
 
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -167,32 +168,48 @@ public class SwaggerServiceInstance implements ServiceInstance {
 						if (value != null) {
 							switch (parameter.getLocation()) {
 								case BODY:
-									ComplexContent bodyContent = value instanceof ComplexContent ? (ComplexContent) value : ComplexContentWrapperFactory.getInstance().getWrapper().wrap(value);
-	
-									MarshallableBinding binding;
-									WebResponseType requestType = getRequestType();
-									contentType = requestType.getMimeType();
-									switch(requestType) {
-										case FORM_ENCODED: 
-											binding = new FormBinding(bodyContent.getType()); 
-										break;
-										case XML: 
-											XMLBinding xmlBinding = new XMLBinding(((ComplexContent) parameters).getType(), charset);
-											binding = xmlBinding;
-										break;
-										default: 
-											JSONBinding jsonBinding = new JSONBinding(bodyContent.getType(), charset);
-											// if the maxOccurs is _on_ the type itself, we have a root array
-											jsonBinding.setIgnoreRootIfArrayWrapper(ValueUtils.contains(MaxOccursProperty.getInstance(), parameter.getElement().getType().getProperties()));
-											binding = jsonBinding;
-											break;
+									if (value instanceof InputStream) {
+										try {
+											content = IOUtils.toBytes(IOUtils.wrap((InputStream) value));
+											contentType = "application/octet-stream";
+										}
+										finally {
+											((InputStream) value).close();
+										}
 									}
-									ByteArrayOutputStream output = new ByteArrayOutputStream();
-									binding.marshal(output, (ComplexContent) parameters);
-									content = output.toByteArray();
+									else {
+										ComplexContent bodyContent = value instanceof ComplexContent ? (ComplexContent) value : ComplexContentWrapperFactory.getInstance().getWrapper().wrap(value);
+		
+										MarshallableBinding binding;
+										WebResponseType requestType = getRequestType();
+										contentType = requestType.getMimeType();
+										switch(requestType) {
+											case FORM_ENCODED: 
+												binding = new FormBinding(bodyContent.getType()); 
+											break;
+											case XML: 
+												XMLBinding xmlBinding = new XMLBinding(((ComplexContent) parameters).getType(), charset);
+												binding = xmlBinding;
+											break;
+											default: 
+												JSONBinding jsonBinding = new JSONBinding(bodyContent.getType(), charset);
+												// if the maxOccurs is _on_ the type itself, we have a root array
+												jsonBinding.setIgnoreRootIfArrayWrapper(ValueUtils.contains(MaxOccursProperty.getInstance(), parameter.getElement().getType().getProperties()));
+												binding = jsonBinding;
+												break;
+										}
+										ByteArrayOutputStream output = new ByteArrayOutputStream();
+										binding.marshal(output, (ComplexContent) parameters);
+										content = output.toByteArray();
+									}
 								break;
 								case HEADER: 
-									additionalHeaders.add(new MimeHeader(parameter.getName(), value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class)));
+									if ("Content-Type".equalsIgnoreCase(parameter.getName())) {
+										contentType = value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class);
+									}
+									else {
+										additionalHeaders.add(new MimeHeader(parameter.getName(), value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class)));
+									}
 								break;
 								case PATH:
 									path = path.replaceAll("\\{[\\s]*" + Pattern.quote(parameter.getName()) + "\\b[^}]*\\}", Matcher.quoteReplacement(value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class)));
