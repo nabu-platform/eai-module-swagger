@@ -41,6 +41,7 @@ import be.nabu.libs.services.api.ServiceInstance;
 import be.nabu.libs.services.api.ServiceInterface;
 import be.nabu.libs.swagger.api.SwaggerMethod;
 import be.nabu.libs.swagger.api.SwaggerParameter;
+import be.nabu.libs.swagger.api.SwaggerParameter.CollectionFormat;
 import be.nabu.libs.swagger.api.SwaggerParameter.ParameterLocation;
 import be.nabu.libs.swagger.api.SwaggerPath;
 import be.nabu.libs.swagger.api.SwaggerResponse;
@@ -64,6 +65,7 @@ import be.nabu.libs.types.api.SimpleType;
 import be.nabu.libs.types.base.ComplexElementImpl;
 import be.nabu.libs.types.base.SimpleElementImpl;
 import be.nabu.libs.types.base.ValueImpl;
+import be.nabu.libs.types.properties.MaxOccursProperty;
 import be.nabu.libs.types.properties.MinOccursProperty;
 import be.nabu.libs.types.structure.Structure;
 import be.nabu.utils.io.IOUtils;
@@ -212,8 +214,9 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 								SwaggerParameterImpl parameter = new SwaggerParameterImpl();
 								parameter.setName(queryParam);
 								parameter.setLocation(ParameterLocation.QUERY);
+								parameter.setCollectionFormat(CollectionFormat.MULTI);
 								parameter.setElement(new SimpleElementImpl<String>(queryParam, SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), null,
-									new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+									new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0), new ValueImpl<Integer>(MaxOccursProperty.getInstance(), 0)));
 								parameters.add(parameter);
 							}
 						}
