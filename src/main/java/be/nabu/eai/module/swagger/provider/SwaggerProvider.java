@@ -19,6 +19,7 @@ import be.nabu.eai.module.rest.provider.RESTService;
 import be.nabu.eai.module.rest.provider.iface.RESTInterfaceArtifact;
 import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.eai.module.web.application.WebFragment;
+import be.nabu.eai.module.web.application.WebFragmentProvider;
 import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.artifacts.jaxb.JAXBArtifact;
 import be.nabu.libs.artifacts.api.Artifact;
@@ -125,7 +126,8 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						info.setVersion(getConfig().getVersion() == null ? "1.0" : getConfig().getVersion());
 						definition.setInfo(info);
 						definition.setRegistry(new TypeRegistryImpl());
-						definition.setBasePath(getConfig().getBasePath() == null ? (path == null ? "/" : path) : getConfig().getBasePath());
+						// the rest services will always use the full path
+						definition.setBasePath(getConfig().getBasePath() == null ? "/" : getConfig().getBasePath());
 						definition.setConsumes(Arrays.asList("application/xml", "application/json"));
 						definition.setProduces(definition.getConsumes());
 						Integer port = artifact.getConfig().getVirtualHost().getConfig().getServer().getConfig().getPort();
@@ -142,9 +144,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							definition.setSecurityDefinitions(Arrays.asList(security));
 						}
 						
-						if (artifact.getConfig().getWebFragments() != null) {
-							definition.setPaths(analyzePaths((ModifiableTypeRegistry) definition.getRegistry(), artifact.getConfig().getWebFragments(), getRelativePath(artifact.getServerPath(), path)));
-						}
+						definition.setPaths(analyzeAllPaths((ModifiableTypeRegistry) definition.getRegistry(), artifact, getRelativePath(artifact.getServerPath(), path), false));
 						
 						ByteArrayOutputStream output = new ByteArrayOutputStream();
 						SwaggerFormatter swaggerFormatter = new SwaggerFormatter();
@@ -160,6 +160,34 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 			}
 		}
 		return swaggers.get(key);
+	}
+	
+	private List<SwaggerPath> analyzeAllPaths(ModifiableTypeRegistry registry, WebFragmentProvider provider, String path, boolean include) {
+		List<SwaggerPath> paths = new ArrayList<SwaggerPath>();
+		if (provider.getWebFragments() == null || provider.getWebFragments().isEmpty()) {
+			return paths;
+		}
+		boolean justToggled = false;
+		if (include || provider.getWebFragments().contains(this)) {
+			include = true;
+			justToggled = true;
+			paths.addAll(analyzePaths(registry, provider.getWebFragments(), path));
+		}
+		for (WebFragment fragment : provider.getWebFragments()) {
+			if (fragment instanceof WebFragmentProvider) {
+				String childPath = ((WebFragmentProvider) fragment).getRelativePath();
+				if (childPath == null) {
+					childPath = "/";
+				}
+				else if (!childPath.startsWith("/")) {
+					childPath = "/" + childPath;
+				}
+				// if this one is not included yet, the path is not yet relative to whatever we are mounting
+				// justToggled is quick fix...
+				paths.addAll(analyzeAllPaths(registry, (WebFragmentProvider) fragment, !include || justToggled || childPath == null || childPath.equals("/") ? path : path + childPath, include));
+			}
+		}
+		return paths;
 	}
 	
 	@SuppressWarnings({ "unchecked", "rawtypes" })
