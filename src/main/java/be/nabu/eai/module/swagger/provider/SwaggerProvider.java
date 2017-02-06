@@ -167,11 +167,9 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		if (provider.getWebFragments() == null || provider.getWebFragments().isEmpty()) {
 			return paths;
 		}
-		boolean justToggled = false;
 		if (include || provider.getWebFragments().contains(this)) {
 			include = true;
-			justToggled = true;
-			paths.addAll(analyzePaths(registry, provider.getWebFragments(), path));
+			paths.addAll(analyzePaths(provider instanceof Artifact ? ((Artifact) provider).getId() : null, registry, provider.getWebFragments(), path));
 		}
 		for (WebFragment fragment : provider.getWebFragments()) {
 			if (fragment instanceof WebFragmentProvider) {
@@ -183,15 +181,14 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 					childPath = "/" + childPath;
 				}
 				// if this one is not included yet, the path is not yet relative to whatever we are mounting
-				// justToggled is quick fix...
-				paths.addAll(analyzeAllPaths(registry, (WebFragmentProvider) fragment, !include || justToggled || childPath == null || childPath.equals("/") ? path : path + childPath, include));
+				paths.addAll(analyzeAllPaths(registry, (WebFragmentProvider) fragment, !include || childPath == null || childPath.equals("/") ? path : path + childPath, include));
 			}
 		}
 		return paths;
 	}
 	
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	private List<SwaggerPath> analyzePaths(ModifiableTypeRegistry registry, List<WebFragment> fragments, String path) {
+	private List<SwaggerPath> analyzePaths(String tag, ModifiableTypeRegistry registry, List<WebFragment> fragments, String path) {
 		List<SwaggerPath> paths = new ArrayList<SwaggerPath>();
 		for (WebFragment fragment : fragments) {
 			if (fragment instanceof RESTService) {
@@ -214,6 +211,9 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						}
 						
 						SwaggerMethodImpl method = new SwaggerMethodImpl();
+						if (tag != null) {
+							method.setTags(Arrays.asList(tag));
+						}
 						method.setMethod(iface.getConfig().getMethod().toString().toLowerCase());
 						method.setConsumes(Arrays.asList("application/xml", "application/json"));
 						method.setProduces(Arrays.asList("application/xml", "application/json", "text/html"));
@@ -469,5 +469,11 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 	@Override
 	public Set<String> getReferences() {
 		return null;
+	}
+	
+	public void refresh() {
+		synchronized(this) {
+			swaggers.clear();
+		}
 	}
 }
