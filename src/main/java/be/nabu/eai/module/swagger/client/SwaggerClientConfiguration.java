@@ -9,6 +9,7 @@ import be.nabu.eai.api.EnvironmentSpecific;
 import be.nabu.eai.module.http.client.HTTPClientArtifact;
 import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.eai.repository.jaxb.CharsetAdapter;
+import be.nabu.libs.swagger.api.SwaggerSecurityDefinition.SecurityType;
 
 @XmlRootElement(name = "swaggerClient")
 public class SwaggerClientConfiguration {
@@ -17,6 +18,7 @@ public class SwaggerClientConfiguration {
 	private Charset charset;
 	private String username, password;
 	private Boolean supportGzip, sanitizeOutput;
+	private SecurityType security;
 	
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
 	public HTTPClientArtifact getHttpClient() {
@@ -63,6 +65,13 @@ public class SwaggerClientConfiguration {
 	}
 	public void setSanitizeOutput(Boolean sanitizeOutput) {
 		this.sanitizeOutput = sanitizeOutput;
+	}
+	
+	public SecurityType getSecurity() {
+		return security;
+	}
+	public void setSecurity(SecurityType security) {
+		this.security = security;
 	}
 
 }

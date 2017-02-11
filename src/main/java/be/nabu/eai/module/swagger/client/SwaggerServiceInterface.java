@@ -3,6 +3,7 @@ package be.nabu.eai.module.swagger.client;
 import be.nabu.libs.swagger.api.SwaggerDefinition;
 import be.nabu.libs.swagger.api.SwaggerMethod;
 import be.nabu.libs.swagger.api.SwaggerPath;
+import be.nabu.libs.swagger.api.SwaggerSecurityDefinition.SecurityType;
 import be.nabu.libs.types.SimpleTypeWrapperFactory;
 import be.nabu.libs.types.base.SimpleElementImpl;
 import be.nabu.libs.types.base.ValueImpl;
@@ -11,8 +12,8 @@ import be.nabu.libs.types.structure.Structure;
 
 public class SwaggerServiceInterface extends SwaggerProxyInterface {
 
-	public SwaggerServiceInterface(String id, SwaggerDefinition definition, SwaggerPath path, SwaggerMethod method) {
-		super(id, definition, path, method);
+	public SwaggerServiceInterface(String id, SwaggerDefinition definition, SwaggerPath path, SwaggerMethod method, SecurityType securityType) {
+		super(id, definition, path, method, securityType);
 	}
 
 	@Override

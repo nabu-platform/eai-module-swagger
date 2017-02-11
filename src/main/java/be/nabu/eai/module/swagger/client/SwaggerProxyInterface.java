@@ -6,9 +6,11 @@ import be.nabu.libs.services.api.ServiceInterface;
 import be.nabu.libs.swagger.api.SwaggerDefinition;
 import be.nabu.libs.swagger.api.SwaggerMethod;
 import be.nabu.libs.swagger.api.SwaggerParameter;
+import be.nabu.libs.swagger.api.SwaggerParameter.ParameterLocation;
 import be.nabu.libs.swagger.api.SwaggerPath;
 import be.nabu.libs.swagger.api.SwaggerResponse;
 import be.nabu.libs.swagger.api.SwaggerSecurityDefinition;
+import be.nabu.libs.swagger.api.SwaggerSecurityDefinition.SecurityType;
 import be.nabu.libs.swagger.api.SwaggerSecuritySetting;
 import be.nabu.libs.swagger.parser.SwaggerParser;
 import be.nabu.libs.types.SimpleTypeWrapperFactory;
@@ -16,6 +18,7 @@ import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.base.ComplexElementImpl;
 import be.nabu.libs.types.base.SimpleElementImpl;
 import be.nabu.libs.types.base.ValueImpl;
+import be.nabu.libs.types.properties.AliasProperty;
 import be.nabu.libs.types.properties.MinOccursProperty;
 import be.nabu.libs.types.structure.Structure;
 
@@ -27,12 +30,14 @@ public class SwaggerProxyInterface implements DefinedServiceInterface {
 	private String id;
 
 	private Structure input, output;
+	private SecurityType security;
 	
-	public SwaggerProxyInterface(String id, SwaggerDefinition definition, SwaggerPath path, SwaggerMethod method) {
+	public SwaggerProxyInterface(String id, SwaggerDefinition definition, SwaggerPath path, SwaggerMethod method, SecurityType security) {
 		this.id = id;
 		this.definition = definition;
 		this.path = path;
 		this.method = method;
+		this.security = security;
 		
 		this.input = initializeInput();
 		this.output = initializeOutput();
@@ -54,23 +59,20 @@ public class SwaggerProxyInterface implements DefinedServiceInterface {
 			}
 			input.add(new ComplexElementImpl("parameters", parameters, input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
 		}
-		if (method.getSecurity() != null && definition.getSecurityDefinitions() != null) {
+		if (security != null) {
+			Structure authentication = new Structure();
+			authentication.setName("authentication");
+			// the api key should not be used unless we add some more configuration options but for now this will do...
+			addAuthentication(authentication, "apiKey", ParameterLocation.HEADER, security);
+			input.add(new ComplexElementImpl("authentication", authentication, input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+		}
+		else if (method.getSecurity() != null && definition.getSecurityDefinitions() != null) {
 			Structure authentication = new Structure();
 			authentication.setName("authentication");
 			for (SwaggerSecuritySetting setting : method.getSecurity()) {
 				for (SwaggerSecurityDefinition securityDefinition : definition.getSecurityDefinitions()) {
 					if (securityDefinition.getName().equals(setting.getName())) {
-						switch(securityDefinition.getType()) {
-							case apiKey:
-								authentication.add(new SimpleElementImpl<String>(SwaggerParser.cleanup(setting.getName()), SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), authentication));
-							break;
-							case basic:
-								authentication.add(new SimpleElementImpl<String>("username", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), authentication));
-								authentication.add(new SimpleElementImpl<String>("password", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), authentication));
-							break;
-							case oauth2:
-								throw new RuntimeException("Currently oauth2 is not automatically supported by swagger clients");
-						}
+						addAuthentication(authentication, setting.getName(), securityDefinition.getLocation(), securityDefinition.getType());
 					}
 				}
 			}
@@ -78,6 +80,26 @@ public class SwaggerProxyInterface implements DefinedServiceInterface {
 		}
 		
 		return input;
+	}
+
+	private void addAuthentication(Structure authentication, String apiKeyName, ParameterLocation apiKeyLocation, SecurityType securityType) {
+		switch(securityType) {
+			case apiKey:
+				// the api key can appear in both the header and the query
+				if (apiKeyLocation == null || apiKeyLocation.equals(ParameterLocation.HEADER)) {
+					authentication.add(new SimpleElementImpl<String>("apiHeaderKey", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), authentication, new ValueImpl<String>(AliasProperty.getInstance(), apiKeyName)));
+				}
+				else {
+					authentication.add(new SimpleElementImpl<String>("apiQueryKey", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), authentication, new ValueImpl<String>(AliasProperty.getInstance(), apiKeyName)));
+				}
+			break;
+			case basic:
+				authentication.add(new SimpleElementImpl<String>("username", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), authentication));
+				authentication.add(new SimpleElementImpl<String>("password", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), authentication));
+			break;
+			case oauth2:
+				authentication.add(new SimpleElementImpl<String>("oauth2Token", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), authentication));
+		}
 	}
 	
 	public static String formattedCode(SwaggerResponse response) {

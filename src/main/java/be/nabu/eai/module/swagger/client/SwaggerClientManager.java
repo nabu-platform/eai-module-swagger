@@ -34,8 +34,8 @@ public class SwaggerClientManager extends JAXBArtifactManager<SwaggerClientConfi
 		if (artifact.getDefinition() != null) {
 			for (SwaggerPath path : artifact.getDefinition().getPaths()) {
 				for (SwaggerMethod method : path.getMethods()) {
-					String prettifiedName = SwaggerParser.cleanup(method.getOperationId());
-					SwaggerProxyInterface iface = new SwaggerProxyInterface(root.getId() + ".interfaces." + prettifiedName, artifact.getDefinition(), path, method);
+					String prettifiedName = SwaggerParser.cleanup(method.getOperationId() == null ? method.getMethod() + path.getPath(): method.getOperationId());
+					SwaggerProxyInterface iface = new SwaggerProxyInterface(root.getId() + ".interfaces." + prettifiedName, artifact.getDefinition(), path, method, artifact.getConfig().getSecurity());
 					addChild(root, artifact, entries, iface);
 					addChild(root, artifact, entries, new SwaggerService(root.getId() + ".services." + prettifiedName, artifact, path, method));
 				}

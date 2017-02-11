@@ -28,7 +28,7 @@ public class SwaggerService implements DefinedService {
 		if (iface == null) {
 			synchronized(this) {
 				if (iface == null) {
-					iface = new SwaggerServiceInterface(id, client.getDefinition(), path, method);
+					iface = new SwaggerServiceInterface(id, client.getDefinition(), path, method, client.getConfig().getSecurity());
 				}
 			}
 		}

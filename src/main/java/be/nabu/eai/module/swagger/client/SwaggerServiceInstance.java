@@ -28,6 +28,7 @@ import be.nabu.libs.http.core.DefaultHTTPRequest;
 import be.nabu.libs.http.core.HTTPUtils;
 import be.nabu.libs.http.glue.GlueListener;
 import be.nabu.libs.property.ValueUtils;
+import be.nabu.libs.property.api.Value;
 import be.nabu.libs.services.api.ExecutionContext;
 import be.nabu.libs.services.api.Service;
 import be.nabu.libs.services.api.ServiceException;
@@ -40,12 +41,14 @@ import be.nabu.libs.swagger.api.SwaggerSecuritySetting;
 import be.nabu.libs.types.ComplexContentWrapperFactory;
 import be.nabu.libs.types.api.ComplexContent;
 import be.nabu.libs.types.api.ComplexType;
+import be.nabu.libs.types.api.Element;
 import be.nabu.libs.types.binding.api.MarshallableBinding;
 import be.nabu.libs.types.binding.api.UnmarshallableBinding;
 import be.nabu.libs.types.binding.api.Window;
 import be.nabu.libs.types.binding.form.FormBinding;
 import be.nabu.libs.types.binding.json.JSONBinding;
 import be.nabu.libs.types.binding.xml.XMLBinding;
+import be.nabu.libs.types.properties.AliasProperty;
 import be.nabu.libs.types.properties.MaxOccursProperty;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.io.api.ByteBuffer;
@@ -270,6 +273,19 @@ public class SwaggerServiceInstance implements ServiceInstance {
 			}
 			part.setHeader(new MimeHeader("Host", host));
 			
+			final String oauth2Token = input == null ? null : (String) input.get("authentication/oauth2Token");
+			if (oauth2Token != null) {
+				part.setHeader(new MimeHeader("Authorization", "Bearer " + oauth2Token));
+			}
+
+			final String apiHeaderKey = input == null ? null : (String) input.get("authentication/apiHeaderKey");
+			if (apiHeaderKey != null) {
+				Element<?> element = ((ComplexType) input.getType().get("authentication").getType()).get("apiHeaderKey");
+				Value<String> property = element.getProperty(AliasProperty.getInstance());
+				String name = property == null ? "apiKey" : property.getValue();
+				part.setHeader(new MimeHeader(name, apiHeaderKey));
+			}
+			
 			final String username = input == null || input.get("authentication/username") == null ? service.getClient().getConfig().getUsername() : (String) input.get("authentication/username");
 			final String password = input == null || input.get("authentication/password") == null ? service.getClient().getConfig().getPassword() : (String) input.get("authentication/password");
 
@@ -317,6 +333,20 @@ public class SwaggerServiceInstance implements ServiceInstance {
 				path += key + "=" + queryParameters.get(key).replace("&", "&amp;");
 			}
 
+			final String apiQueryKey = input == null ? null : (String) input.get("authentication/apiQueryKey");
+			if (apiQueryKey != null) {
+				Element<?> element = ((ComplexType) input.getType().get("authentication").getType()).get("apiQueryKey");
+				Value<String> property = element.getProperty(AliasProperty.getInstance());
+				String name = property == null ? "apiKey" : property.getValue();
+				if (first) {
+					path += "?";
+				}
+				else {
+					path += "&";
+				}
+				path += name + "=" + apiQueryKey;
+			}
+			
 			HTTPRequest request = new DefaultHTTPRequest(
 				service.getMethod().getMethod() == null ? "GET" : service.getMethod().getMethod().toUpperCase(),
 				path,
