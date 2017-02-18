@@ -19,6 +19,7 @@ public class SwaggerClientConfiguration {
 	private String username, password;
 	private Boolean supportGzip, sanitizeOutput;
 	private SecurityType security;
+	private String host, basePath;
 	
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
 	public HTTPClientArtifact getHttpClient() {
@@ -73,5 +74,22 @@ public class SwaggerClientConfiguration {
 	public void setSecurity(SecurityType security) {
 		this.security = security;
 	}
+	
+	@EnvironmentSpecific
+	public String getHost() {
+		return host;
+	}
+	public void setHost(String host) {
+		this.host = host;
+	}
+	
+	@EnvironmentSpecific
+	public String getBasePath() {
+		return basePath;
+	}
+	public void setBasePath(String basePath) {
+		this.basePath = basePath;
+	}
+	
 
 }

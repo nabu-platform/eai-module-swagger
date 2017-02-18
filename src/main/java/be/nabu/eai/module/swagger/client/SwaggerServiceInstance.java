@@ -42,6 +42,8 @@ import be.nabu.libs.types.ComplexContentWrapperFactory;
 import be.nabu.libs.types.api.ComplexContent;
 import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.Element;
+import be.nabu.libs.types.api.SimpleType;
+import be.nabu.libs.types.api.Unmarshallable;
 import be.nabu.libs.types.binding.api.MarshallableBinding;
 import be.nabu.libs.types.binding.api.UnmarshallableBinding;
 import be.nabu.libs.types.binding.api.Window;
@@ -112,7 +114,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 		else if (produces.contains("application/x-www-form-urlencoded")) {
 			return WebResponseType.FORM_ENCODED;
 		}
-		throw new RuntimeException("No supported consummation types");
+		return null;
 	}
 	
 	private boolean isSecure() {
@@ -127,9 +129,15 @@ public class SwaggerServiceInstance implements ServiceInstance {
 	@Override
 	public ComplexContent execute(ExecutionContext executionContext, ComplexContent input) throws ServiceException {
 		try {
+			// runtime wins
 			String host = input == null ? null : (String) input.get("host");
 			if (host == null) {
-				host = service.getClient().getDefinition().getHost();
+				// otherwise something you explicitly configured
+				host = service.getClient().getConfig().getHost();
+				if (host == null) {
+					// otherwise the default provided host
+					host = service.getClient().getDefinition().getHost();
+				}
 			}
 			if (host == null) {
 				throw new ServiceException("SWAGGER-CLIENT-1", "No host found for: " + service.getId());
@@ -137,7 +145,10 @@ public class SwaggerServiceInstance implements ServiceInstance {
 			
 			String basePath = input == null ? null : (String) input.get("basePath");
 			if (basePath == null) {
-				basePath = service.getClient().getDefinition().getBasePath();
+				basePath = service.getClient().getConfig().getBasePath();
+				if (basePath == null) {
+					basePath = service.getClient().getDefinition().getBasePath();
+				}
 			}
 			if (basePath == null) {
 				throw new ServiceException("SWAGGER-CLIENT-2", "No basePath configured for: " + service.getId());
@@ -191,7 +202,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 												binding = new FormBinding(bodyContent.getType()); 
 											break;
 											case XML: 
-												XMLBinding xmlBinding = new XMLBinding(((ComplexContent) parameters).getType(), charset);
+												XMLBinding xmlBinding = new XMLBinding(bodyContent.getType(), charset);
 												binding = xmlBinding;
 											break;
 											default: 
@@ -202,7 +213,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 												break;
 										}
 										ByteArrayOutputStream output = new ByteArrayOutputStream();
-										binding.marshal(output, (ComplexContent) parameters);
+										binding.marshal(output, bodyContent);
 										content = output.toByteArray();
 									}
 								break;
@@ -261,7 +272,10 @@ public class SwaggerServiceInstance implements ServiceInstance {
 			}
 			
 			// request the proper type
-			part.setHeader(new MimeHeader("Accept", getResponseType().getMimeType()));
+			WebResponseType responseType = getResponseType();
+			if (responseType != null) {
+				part.setHeader(new MimeHeader("Accept", responseType.getMimeType()));
+			}
 			
 			// add whatever headers were requested
 			part.setHeader(additionalHeaders.toArray(new Header[additionalHeaders.size()]));
@@ -412,32 +426,60 @@ public class SwaggerServiceInstance implements ServiceInstance {
 			if (response.getContent() != null) {
 				String responseContentType = MimeUtils.getContentType(response.getContent().getHeaders());
 				if (response.getContent() instanceof ContentPart && chosenResponse.getElement() != null) {
-					if (responseContentType == null) {
-						responseContentType = getResponseType().getMimeType();
-					}
-					
-					UnmarshallableBinding binding;
-					if ("application/x-www-form-urlencoded".equalsIgnoreCase(responseContentType)) {
-						binding = new FormBinding((ComplexType) chosenResponse.getElement().getType(), charset);
-					}
-					else if ("application/json".equalsIgnoreCase(responseContentType) || "application/javascript".equalsIgnoreCase(responseContentType) || "application/x-javascript".equalsIgnoreCase(responseContentType)) {
-						JSONBinding jsonBinding = new JSONBinding((ComplexType) chosenResponse.getElement().getType(), charset);
-						jsonBinding.setIgnoreRootIfArrayWrapper(ValueUtils.contains(MaxOccursProperty.getInstance(), chosenResponse.getElement().getType().getProperties()));
-						binding = jsonBinding;
-					}
-					else if ("application/xml".equalsIgnoreCase(responseContentType) || "text/xml".equalsIgnoreCase(responseContentType)) {
-						XMLBinding xmlBinding = new XMLBinding((ComplexType) chosenResponse.getElement().getType(), charset);
-						binding = xmlBinding;
+					if (chosenResponse.getElement().getType() instanceof SimpleType) {
+						Object unmarshal;
+						if (((SimpleType<?>) chosenResponse.getElement().getType()).getInstanceClass().equals(InputStream.class)) {
+							unmarshal = IOUtils.toInputStream(((ContentPart) response.getContent()).getReadable());
+						}
+						else {
+							ReadableContainer<ByteBuffer> readable = ((ContentPart) response.getContent()).getReadable();
+							try {
+								String content = new String(IOUtils.toBytes(readable), charset);
+								// for SOME reason the workflow engine for digipolis returns a base64 encoded byte stream with content-type application/json
+								// apart from that it also adds quotes to the base64 encoded string at the front and back
+								// while a very specific fix for that circumstance, it seems unlikely to be repeated for legitimate reasons...
+								if (((SimpleType<?>) chosenResponse.getElement().getType()).getInstanceClass().equals(byte[].class) && content.startsWith("\"") && content.endsWith("\"")) {
+									content = content.substring(1, content.length() - 1);
+								}
+								unmarshal = ((Unmarshallable<?>) chosenResponse.getElement().getType()).unmarshal(content, chosenResponse.getElement().getProperties());
+							}
+							finally {
+								readable.close();
+							}
+						}
+						output.set(SwaggerProxyInterface.formattedCode(chosenResponse) + "/" + chosenResponse.getElement().getName(), unmarshal);
 					}
 					else {
-						throw new ServiceException("SWAGGER-5", "Unexpected response content type: " + responseContentType);
+						if (responseContentType == null) {
+							if (responseType != null) {
+								responseContentType = responseType.getMimeType();
+							}
+						}
+						
+						UnmarshallableBinding binding;
+						if ("application/x-www-form-urlencoded".equalsIgnoreCase(responseContentType)) {
+							binding = new FormBinding((ComplexType) chosenResponse.getElement().getType(), charset);
+						}
+						else if ("application/json".equalsIgnoreCase(responseContentType) || "application/javascript".equalsIgnoreCase(responseContentType) || "application/x-javascript".equalsIgnoreCase(responseContentType)) {
+							JSONBinding jsonBinding = new JSONBinding((ComplexType) chosenResponse.getElement().getType(), charset);
+							jsonBinding.setIgnoreRootIfArrayWrapper(ValueUtils.contains(MaxOccursProperty.getInstance(), chosenResponse.getElement().getType().getProperties()));
+							jsonBinding.setIgnoreEmptyStrings(true);
+							binding = jsonBinding;
+						}
+						else if ("application/xml".equalsIgnoreCase(responseContentType) || "text/xml".equalsIgnoreCase(responseContentType)) {
+							XMLBinding xmlBinding = new XMLBinding((ComplexType) chosenResponse.getElement().getType(), charset);
+							binding = xmlBinding;
+						}
+						else {
+							throw new ServiceException("SWAGGER-5", "Unexpected response content type: " + responseContentType);
+						}
+						
+						ComplexContent unmarshal = binding.unmarshal(IOUtils.toInputStream(((ContentPart) response.getContent()).getReadable()), new Window[0]);
+						if (service.getClient().getConfig().getSanitizeOutput() != null && service.getClient().getConfig().getSanitizeOutput()) {
+							unmarshal = (ComplexContent) GlueListener.sanitize(unmarshal);
+						}
+						output.set(SwaggerProxyInterface.formattedCode(chosenResponse) + "/" + chosenResponse.getElement().getName(), unmarshal);
 					}
-					
-					ComplexContent unmarshal = binding.unmarshal(IOUtils.toInputStream(((ContentPart) response.getContent()).getReadable()), new Window[0]);
-					if (service.getClient().getConfig().getSanitizeOutput() != null && service.getClient().getConfig().getSanitizeOutput()) {
-						unmarshal = (ComplexContent) GlueListener.sanitize(unmarshal);
-					}
-					output.set(SwaggerProxyInterface.formattedCode(chosenResponse) + "/" + chosenResponse.getElement().getName(), unmarshal);
 				}
 				
 				if (chosenResponse.getHeaders() != null) {
