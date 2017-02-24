@@ -14,6 +14,7 @@ import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.scene.control.Button;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Tab;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -23,13 +24,16 @@ import be.nabu.eai.developer.managers.util.SimpleProperty;
 import be.nabu.eai.developer.managers.util.SimplePropertyUpdater;
 import be.nabu.eai.developer.util.EAIDeveloperUtils;
 import be.nabu.eai.repository.resources.RepositoryEntry;
+import be.nabu.jfx.control.ace.AceEditor;
 import be.nabu.libs.property.api.Property;
 import be.nabu.libs.property.api.Value;
 import be.nabu.libs.resources.api.ManageableContainer;
+import be.nabu.libs.resources.api.ReadableResource;
 import be.nabu.libs.resources.api.Resource;
 import be.nabu.libs.resources.api.WritableResource;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.io.api.ByteBuffer;
+import be.nabu.utils.io.api.ReadableContainer;
 import be.nabu.utils.io.api.WritableContainer;
 
 public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientConfiguration, SwaggerClient> {
@@ -151,7 +155,37 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 				});
 			}
 		});
-		buttons.getChildren().addAll(upload, download);
+		Button view = new Button("View Swagger");
+		view.addEventHandler(ActionEvent.ANY, new EventHandler<ActionEvent>() {
+			@Override
+			public void handle(ActionEvent arg0) {
+				Resource swagger = instance.getDirectory().getChild("swagger.json");
+				if (swagger != null) {
+					try {
+						ReadableContainer<ByteBuffer> readable = ((ReadableResource) swagger).getReadable();
+						try {
+							String tabId = instance.getId() + " (swagger.json)";
+							Tab tab = MainController.getInstance().getTab(tabId);
+							if (tab == null) {
+								tab = MainController.getInstance().newTab(tabId);
+								AceEditor editor = new AceEditor();
+								editor.setContent("application/javascript", new String(IOUtils.toBytes(readable), "UTF-8"));
+								editor.setReadOnly(true);
+								tab.setContent(editor.getWebView());
+							}
+							MainController.getInstance().activate(tabId);
+						}
+						finally {
+							readable.close();
+						}
+					}
+					catch (IOException e) {
+						MainController.getInstance().notify(e);
+					}
+				}
+			}
+		});
+		buttons.getChildren().addAll(upload, download, view);
 		vbox.prefWidthProperty().bind(scroll.widthProperty());
 		scroll.setContent(vbox);
 		AnchorPane anchorPane = new AnchorPane();

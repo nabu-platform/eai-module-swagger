@@ -2,10 +2,12 @@ package be.nabu.eai.module.swagger.provider;
 
 import javax.xml.bind.annotation.XmlRootElement;
 
+import be.nabu.eai.api.LargeText;
+
 @XmlRootElement(name = "swaggerProvider")
 public class SwaggerProviderConfiguration {
 
-	private String path, title, version, basePath;
+	private String path, termsOfService, version, basePath;
 
 	public String getPath() {
 		return path;
@@ -14,13 +16,6 @@ public class SwaggerProviderConfiguration {
 		this.path = path;
 	}
 
-	public String getTitle() {
-		return title;
-	}
-	public void setTitle(String title) {
-		this.title = title;
-	}
-	
 	public String getVersion() {
 		return version;
 	}
@@ -33,6 +28,14 @@ public class SwaggerProviderConfiguration {
 	}
 	public void setBasePath(String basePath) {
 		this.basePath = basePath;
+	}
+		
+	@LargeText
+	public String getTermsOfService() {
+		return termsOfService;
+	}
+	public void setTermsOfService(String termsOfService) {
+		this.termsOfService = termsOfService;
 	}
 	
 }

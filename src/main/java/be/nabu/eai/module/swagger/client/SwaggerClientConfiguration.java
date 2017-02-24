@@ -1,11 +1,15 @@
 package be.nabu.eai.module.swagger.client;
 
 import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
+import be.nabu.eai.api.Enumerator;
 import be.nabu.eai.api.EnvironmentSpecific;
+import be.nabu.eai.api.ValueEnumerator;
 import be.nabu.eai.module.http.client.HTTPClientArtifact;
 import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.eai.repository.jaxb.CharsetAdapter;
@@ -19,7 +23,7 @@ public class SwaggerClientConfiguration {
 	private String username, password;
 	private Boolean supportGzip, sanitizeOutput;
 	private SecurityType security;
-	private String host, basePath;
+	private String host, basePath, scheme;
 	
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
 	public HTTPClientArtifact getHttpClient() {
@@ -90,6 +94,25 @@ public class SwaggerClientConfiguration {
 	public void setBasePath(String basePath) {
 		this.basePath = basePath;
 	}
-	
 
+	@EnvironmentSpecific
+	@ValueEnumerator(enumerator = SchemeEnumerator.class)
+	public String getScheme() {
+		return scheme;
+	}
+	public void setScheme(String scheme) {
+		this.scheme = scheme;
+	}
+
+	public static class SchemeEnumerator implements Enumerator {
+
+		@Override
+		public List<?> enumerate() {
+			List<String> schemes = new ArrayList<String>();
+			schemes.add("http");
+			schemes.add("https");
+			return schemes;
+		}
+		
+	}
 }

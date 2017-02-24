@@ -20,6 +20,8 @@ import be.nabu.eai.module.rest.provider.iface.RESTInterfaceArtifact;
 import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.eai.module.web.application.WebFragment;
 import be.nabu.eai.module.web.application.WebFragmentProvider;
+import be.nabu.eai.repository.DocumentationManager;
+import be.nabu.eai.repository.api.Documented;
 import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.artifacts.jaxb.JAXBArtifact;
 import be.nabu.libs.artifacts.api.Artifact;
@@ -32,6 +34,7 @@ import be.nabu.libs.http.api.HTTPRequest;
 import be.nabu.libs.http.api.HTTPResponse;
 import be.nabu.libs.http.core.DefaultHTTPResponse;
 import be.nabu.libs.http.core.HTTPUtils;
+import be.nabu.libs.http.server.HTTPServerUtils;
 import be.nabu.libs.resources.URIUtils;
 import be.nabu.libs.resources.api.ResourceContainer;
 import be.nabu.libs.services.api.DefinedService;
@@ -86,7 +89,11 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 	public void start(WebApplication artifact, String path) throws IOException {
 		if (artifact.getConfig().getWebFragments() != null) {
 			final String fullPath = getFullPath(artifact, path);
-			artifact.getDispatcher().subscribe(HTTPRequest.class, new EventHandler<HTTPRequest, HTTPResponse>() {
+			String key = getKey(artifact, path);
+			if (subscriptions.containsKey(key)) {
+				stop(artifact, path);
+			}
+			EventSubscription<HTTPRequest, HTTPResponse> subscription = artifact.getDispatcher().subscribe(HTTPRequest.class, new EventHandler<HTTPRequest, HTTPResponse>() {
 				@Override
 				public HTTPResponse handle(HTTPRequest request) {
 					try {
@@ -110,6 +117,8 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 					}
 				}
 			});
+			subscription.filter(HTTPServerUtils.limitToPath(fullPath));
+			subscriptions.put(key, subscription);
 		}
 	}
 	
@@ -121,9 +130,12 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 					if (!swaggers.containsKey(key)) {
 						SwaggerDefinitionImpl definition = new SwaggerDefinitionImpl(getId());
 						SwaggerInfoImpl info = new SwaggerInfoImpl();
+						Documented documented = DocumentationManager.getDocumentation(getRepository(), getId());
 						// title and version are mandatory
-						info.setTitle(getConfig().getTitle() == null ? getId() : getConfig().getTitle());
+						info.setTitle(documented == null || documented.getTitle() == null ? getId() : documented.getTitle());
 						info.setVersion(getConfig().getVersion() == null ? "1.0" : getConfig().getVersion());
+						info.setDescription(documented == null ? null : documented.getDescription());
+						info.setTermsOfService(getConfig().getTermsOfService());
 						definition.setInfo(info);
 						definition.setRegistry(new TypeRegistryImpl());
 						// the rest services will always use the full path
@@ -169,7 +181,11 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		}
 		if (include || provider.getWebFragments().contains(this)) {
 			include = true;
-			paths.addAll(analyzePaths(provider instanceof Artifact ? ((Artifact) provider).getId() : null, registry, provider.getWebFragments(), path));
+			Documented documentation = null;
+			if (provider instanceof Artifact) {
+				documentation = DocumentationManager.getDocumentation(getRepository(), ((Artifact) provider).getId());
+			}
+			paths.addAll(analyzePaths(provider instanceof Artifact ? ((Artifact) provider).getId() : null, documentation, registry, provider.getWebFragments(), path));
 		}
 		for (WebFragment fragment : provider.getWebFragments()) {
 			if (fragment instanceof WebFragmentProvider) {
@@ -188,16 +204,20 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 	}
 	
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	private List<SwaggerPath> analyzePaths(String tag, ModifiableTypeRegistry registry, List<WebFragment> fragments, String path) {
+	private List<SwaggerPath> analyzePaths(String parentId, Documented parentDocumentation, ModifiableTypeRegistry registry, List<WebFragment> fragments, String path) {
 		List<SwaggerPath> paths = new ArrayList<SwaggerPath>();
 		for (WebFragment fragment : fragments) {
 			if (fragment instanceof RESTService) {
+				Documented documentation = DocumentationManager.getDocumentation(getRepository(), fragment.getId());
 				RESTService rest = (RESTService) fragment;
 				for (Artifact child : rest.getContainedArtifacts()) {
 					if (child instanceof RESTInterfaceArtifact) {
 						RESTInterfaceArtifact iface = (RESTInterfaceArtifact) child;
 						SwaggerPathImpl swaggerPath = null;
 						String fullPath = getRelativePath(path, iface.getConfig().getPath());
+						if (getConfig().getBasePath() != null && fullPath.startsWith(getConfig().getBasePath())) {
+							fullPath = fullPath.substring(getConfig().getBasePath().length());
+						}
 						for (SwaggerPath possible : paths) {
 							if (possible.getPath().equals(fullPath)) {
 								swaggerPath = (SwaggerPathImpl) possible;
@@ -211,8 +231,18 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						}
 						
 						SwaggerMethodImpl method = new SwaggerMethodImpl();
-						if (tag != null) {
-							method.setTags(Arrays.asList(tag));
+						if (documentation != null) {
+							if (documentation.getTags() != null) {
+								method.setTags(new ArrayList<String>(documentation.getTags()));
+							}
+							method.setSummary(documentation.getTitle());
+							method.setDescription(documentation.getDescription());
+						}
+						if (parentDocumentation != null && method.getTags() == null) {
+							method.setTags(new ArrayList<String>(parentDocumentation.getTags()));
+						}
+						if (method.getTags() == null) {
+							method.setTags(Arrays.asList(parentId));
 						}
 						method.setMethod(iface.getConfig().getMethod().toString().toLowerCase());
 						method.setConsumes(Arrays.asList("application/xml", "application/json"));

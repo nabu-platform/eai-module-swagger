@@ -118,6 +118,9 @@ public class SwaggerServiceInstance implements ServiceInstance {
 	}
 	
 	private boolean isSecure() {
+		if (service.getClient().getConfig().getScheme() != null) {
+			return service.getClient().getConfig().getScheme().equals("https");
+		}
 		List<String> schemes = service.getMethod().getSchemes();
 		if (schemes == null || schemes.isEmpty()) {
 			schemes = service.getClient().getDefinition().getSchemes();
