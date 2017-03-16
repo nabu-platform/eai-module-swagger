@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import be.nabu.eai.module.http.server.RepositoryExceptionFormatter.StructuredResponse;
 import be.nabu.eai.module.rest.WebMethod;
 import be.nabu.eai.module.rest.provider.RESTService;
 import be.nabu.eai.module.rest.provider.iface.RESTInterfaceArtifact;
@@ -73,6 +74,7 @@ import be.nabu.libs.types.api.SimpleType;
 import be.nabu.libs.types.base.ComplexElementImpl;
 import be.nabu.libs.types.base.SimpleElementImpl;
 import be.nabu.libs.types.base.ValueImpl;
+import be.nabu.libs.types.java.BeanResolver;
 import be.nabu.libs.types.properties.MaxOccursProperty;
 import be.nabu.libs.types.properties.MinOccursProperty;
 import be.nabu.libs.types.structure.Structure;
@@ -144,7 +146,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						definition.setRegistry(new TypeRegistryImpl());
 						// the rest services will always use the full path
 						definition.setBasePath(getConfig().getBasePath() == null ? "/" : getConfig().getBasePath());
-						definition.setConsumes(Arrays.asList("application/xml", "application/json"));
+						definition.setConsumes(Arrays.asList("application/json", "application/xml"));
 						definition.setProduces(definition.getConsumes());
 						Integer port = artifact.getConfig().getVirtualHost().getConfig().getServer().getConfig().getPort();
 						definition.setHost(artifact.getConfig().getVirtualHost().getConfig().getHost() + (port == null ? null : ":" + port));
@@ -235,8 +237,8 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							method.setTags(Arrays.asList(parentId));
 						}
 						method.setMethod(iface.getConfig().getMethod().toString().toLowerCase());
-						method.setConsumes(Arrays.asList("application/xml", "application/json"));
-						method.setProduces(Arrays.asList("application/xml", "application/json", "text/html"));
+						method.setConsumes(Arrays.asList("application/json", "application/xml"));
+						method.setProduces(Arrays.asList("application/json", "application/xml", "text/html"));
 						method.setOperationId(rest.getId());
 						if (iface.getConfig().getRoles() != null && !iface.getConfig().getRoles().isEmpty() && !iface.getConfig().getRoles().equals(Arrays.asList("guest"))) {
 							SwaggerSecuritySettingImpl security = new SwaggerSecuritySettingImpl();
@@ -359,6 +361,20 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							c304.setDescription("The resource has not changed since the last modified");
 							responses.add(c304);
 						}
+						
+						// every response can lead to an empty return (theoretically)
+						SwaggerResponseImpl c500 = new SwaggerResponseImpl();
+						c500.setCode(500);
+						c500.setDescription("The request could not be processed correctly by the server");
+						ComplexType complexType = registry.getComplexType(getId(), "StructuredErrorResponse");
+						if (complexType == null) {
+							ComplexType structuredResponse = (ComplexType) BeanResolver.getInstance().resolve(StructuredResponse.class);
+							ComplexTypeWrapper wrapper = new ComplexTypeWrapper(structuredResponse, getId(), "StructuredErrorResponse");
+							registry.register(wrapper);
+							complexType = wrapper;
+						}
+						c500.setElement(new ComplexElementImpl("body", complexType, null));
+						responses.add(c500);
 						
 						method.setResponses(responses);
 						
