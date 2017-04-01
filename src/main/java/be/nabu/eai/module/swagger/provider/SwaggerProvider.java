@@ -281,6 +281,8 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 								parameters.add(parameter);
 							}
 						}
+						List<SwaggerResponse> responses = new ArrayList<SwaggerResponse>();
+
 						if (iface.getConfig().getInputAsStream() != null && iface.getConfig().getInputAsStream()) {
 							SwaggerParameterImpl parameter = new SwaggerParameterImpl();
 							parameter.setName("body");
@@ -305,10 +307,23 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							}
 							parameter.setElement(new ComplexElementImpl("body", complexType, (ComplexType) null));
 							parameters.add(parameter);
+							
+							// if you have input, you can get it wrong
+							SwaggerResponseImpl c400 = new SwaggerResponseImpl();
+							c400.setCode(400);
+							c400.setDescription("The request is invalid");
+							complexType = registry.getComplexType(getId(), "StructuredErrorResponse");
+							if (complexType == null) {
+								ComplexType structuredResponse = (ComplexType) BeanResolver.getInstance().resolve(StructuredResponse.class);
+								ComplexTypeWrapper wrapper = new ComplexTypeWrapper(structuredResponse, getId(), "StructuredErrorResponse");
+								registry.register(wrapper);
+								complexType = wrapper;
+							}
+							c400.setElement(new ComplexElementImpl("body", complexType, null));
+							responses.add(c400);
 						}
 						method.setParameters(parameters);
 						
-						List<SwaggerResponse> responses = new ArrayList<SwaggerResponse>();
 						
 						// if we have security, we can send back a 401 and 403
 						if (method.getSecurity() != null) {
