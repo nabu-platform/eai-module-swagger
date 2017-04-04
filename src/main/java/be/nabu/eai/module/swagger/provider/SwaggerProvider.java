@@ -360,6 +360,15 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 								}
 								c200.setElement(new ComplexElementImpl("body", complexType, (ComplexType) null));
 							}
+							if (iface.getConfig().getResponseHeaders() != null) {
+								c200.setHeaders(new ArrayList<SwaggerParameter>());
+								for (String header : iface.getConfig().getResponseHeaders().split("[\\s]*,[\\s]*")) {
+									SwaggerParameterImpl headerParameter = new SwaggerParameterImpl();
+									headerParameter.setName(header);
+									headerParameter.setElement(new SimpleElementImpl(header, SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), null));
+									c200.getHeaders().add(headerParameter);
+								}
+							}
 							responses.add(c200);
 						}
 						
