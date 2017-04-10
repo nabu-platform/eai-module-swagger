@@ -465,7 +465,9 @@ public class SwaggerServiceInstance implements ServiceInstance {
 						}
 						else if ("application/json".equalsIgnoreCase(responseContentType) || "application/javascript".equalsIgnoreCase(responseContentType) || "application/x-javascript".equalsIgnoreCase(responseContentType)) {
 							JSONBinding jsonBinding = new JSONBinding((ComplexType) chosenResponse.getElement().getType(), charset);
-							jsonBinding.setIgnoreRootIfArrayWrapper(ValueUtils.contains(MaxOccursProperty.getInstance(), chosenResponse.getElement().getType().getProperties()));
+//							jsonBinding.setIgnoreRootIfArrayWrapper(ValueUtils.contains(MaxOccursProperty.getInstance(), chosenResponse.getElement().getType().getProperties()));
+							jsonBinding.setIgnoreRootIfArrayWrapper(true);
+							jsonBinding.setAllowRaw(true);
 							jsonBinding.setIgnoreEmptyStrings(true);
 							binding = jsonBinding;
 						}
