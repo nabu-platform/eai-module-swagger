@@ -44,6 +44,7 @@ import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.Element;
 import be.nabu.libs.types.api.SimpleType;
 import be.nabu.libs.types.api.Unmarshallable;
+import be.nabu.libs.types.base.ComplexElementImpl;
 import be.nabu.libs.types.binding.api.MarshallableBinding;
 import be.nabu.libs.types.binding.api.UnmarshallableBinding;
 import be.nabu.libs.types.binding.api.Window;
@@ -52,6 +53,7 @@ import be.nabu.libs.types.binding.json.JSONBinding;
 import be.nabu.libs.types.binding.xml.XMLBinding;
 import be.nabu.libs.types.properties.AliasProperty;
 import be.nabu.libs.types.properties.MaxOccursProperty;
+import be.nabu.libs.types.structure.Structure;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.io.api.ByteBuffer;
 import be.nabu.utils.io.api.ReadableContainer;
@@ -194,6 +196,12 @@ public class SwaggerServiceInstance implements ServiceInstance {
 											((InputStream) value).close();
 										}
 									}
+									else if (parameter.getElement().getType().isList()) {
+										throw new RuntimeException("Array inputs are not yet supported");
+									}
+									else if (parameter.getElement().getType() instanceof SimpleType) {
+										throw new RuntimeException("Simple type inputs are not yet supported");
+									}
 									else {
 										ComplexContent bodyContent = value instanceof ComplexContent ? (ComplexContent) value : ComplexContentWrapperFactory.getInstance().getWrapper().wrap(value);
 		
@@ -208,7 +216,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 												XMLBinding xmlBinding = new XMLBinding(bodyContent.getType(), charset);
 												binding = xmlBinding;
 											break;
-											default: 
+											default:
 												JSONBinding jsonBinding = new JSONBinding(bodyContent.getType(), charset);
 												// if the maxOccurs is _on_ the type itself, we have a root array
 												jsonBinding.setIgnoreRootIfArrayWrapper(ValueUtils.contains(MaxOccursProperty.getInstance(), parameter.getElement().getType().getProperties()));
@@ -438,9 +446,8 @@ public class SwaggerServiceInstance implements ServiceInstance {
 							ReadableContainer<ByteBuffer> readable = ((ContentPart) response.getContent()).getReadable();
 							try {
 								String content = new String(IOUtils.toBytes(readable), charset);
-								// for SOME reason the workflow engine for digipolis returns a base64 encoded byte stream with content-type application/json
-								// apart from that it also adds quotes to the base64 encoded string at the front and back
-								// while a very specific fix for that circumstance, it seems unlikely to be repeated for legitimate reasons...
+								// instead of returning the base64 as is with content type "application/octet-stream" or the like
+								// some applications send it back with content type "application/json" and wrap the base64 in quotes to indicate a string
 								if (((SimpleType<?>) chosenResponse.getElement().getType()).getInstanceClass().equals(byte[].class) && content.startsWith("\"") && content.endsWith("\"")) {
 									content = content.substring(1, content.length() - 1);
 								}
@@ -459,12 +466,25 @@ public class SwaggerServiceInstance implements ServiceInstance {
 							}
 						}
 						
+						boolean wrapped = false;
+						ComplexType unmarshalType = null;
+						// if the type itself is a list, wrap something around it for parsing
+						if (chosenResponse.getElement().getType().isList(chosenResponse.getElement().getProperties())) {
+							Structure structure = new Structure();
+							structure.add(new ComplexElementImpl("array", (ComplexType) chosenResponse.getElement().getType(), structure));
+							unmarshalType = structure;
+							wrapped = true;
+						}
+						else {
+							unmarshalType = (ComplexType) chosenResponse.getElement().getType();
+						}
+
 						UnmarshallableBinding binding;
 						if ("application/x-www-form-urlencoded".equalsIgnoreCase(responseContentType)) {
-							binding = new FormBinding((ComplexType) chosenResponse.getElement().getType(), charset);
+							binding = new FormBinding(unmarshalType, charset);
 						}
 						else if ("application/json".equalsIgnoreCase(responseContentType) || "application/javascript".equalsIgnoreCase(responseContentType) || "application/x-javascript".equalsIgnoreCase(responseContentType)) {
-							JSONBinding jsonBinding = new JSONBinding((ComplexType) chosenResponse.getElement().getType(), charset);
+							JSONBinding jsonBinding = new JSONBinding(unmarshalType, charset);
 //							jsonBinding.setIgnoreRootIfArrayWrapper(ValueUtils.contains(MaxOccursProperty.getInstance(), chosenResponse.getElement().getType().getProperties()));
 							jsonBinding.setIgnoreRootIfArrayWrapper(true);
 							jsonBinding.setAllowRaw(true);
@@ -472,7 +492,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 							binding = jsonBinding;
 						}
 						else if ("application/xml".equalsIgnoreCase(responseContentType) || "text/xml".equalsIgnoreCase(responseContentType)) {
-							XMLBinding xmlBinding = new XMLBinding((ComplexType) chosenResponse.getElement().getType(), charset);
+							XMLBinding xmlBinding = new XMLBinding(unmarshalType, charset);
 							binding = xmlBinding;
 						}
 						else {
@@ -483,7 +503,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 						if (service.getClient().getConfig().getSanitizeOutput() != null && service.getClient().getConfig().getSanitizeOutput()) {
 							unmarshal = (ComplexContent) GlueListener.sanitize(unmarshal);
 						}
-						output.set(SwaggerProxyInterface.formattedCode(chosenResponse) + "/" + chosenResponse.getElement().getName(), unmarshal);
+						output.set(SwaggerProxyInterface.formattedCode(chosenResponse) + "/" + chosenResponse.getElement().getName(), wrapped ? unmarshal.get("array") : unmarshal);
 					}
 				}
 				
