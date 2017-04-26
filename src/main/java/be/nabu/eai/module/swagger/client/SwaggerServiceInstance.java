@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +43,7 @@ import be.nabu.libs.types.ComplexContentWrapperFactory;
 import be.nabu.libs.types.api.ComplexContent;
 import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.Element;
+import be.nabu.libs.types.api.Marshallable;
 import be.nabu.libs.types.api.SimpleType;
 import be.nabu.libs.types.api.Unmarshallable;
 import be.nabu.libs.types.base.ComplexElementImpl;
@@ -96,7 +98,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 		else if (consumes.contains("application/x-www-form-urlencoded")) {
 			return WebResponseType.FORM_ENCODED;
 		}
-		throw new RuntimeException("No supported consummation types");
+		return null;
 	}
 	
 	private WebResponseType getResponseType() {
@@ -130,7 +132,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 		return schemes != null && !schemes.isEmpty() && schemes.contains("https");
 	}
 	
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public ComplexContent execute(ExecutionContext executionContext, ComplexContent input) throws ServiceException {
 		try {
@@ -169,13 +171,14 @@ public class SwaggerServiceInstance implements ServiceInstance {
 				path = "/";
 			}
 			List<Header> additionalHeaders = new ArrayList<Header>();
-			Map<String, String> queryParameters = new HashMap<String, String>();
+			Map<String, List<String>> queryParameters = new HashMap<String, List<String>>();
 
 			ModifiablePart part;
 			Object parameters = input == null ? null : input.get("parameters");
 			if (parameters instanceof ComplexContent) {
 				byte [] content = null;
-				String contentType = null;
+				WebResponseType requestType = getRequestType();
+				String contentType = requestType == null ? "application/octet-stream" : requestType.getMimeType();
 				
 				// check if there is a body content
 				if (service.getMethod().getParameters() != null) {
@@ -190,23 +193,34 @@ public class SwaggerServiceInstance implements ServiceInstance {
 									if (value instanceof InputStream) {
 										try {
 											content = IOUtils.toBytes(IOUtils.wrap((InputStream) value));
-											contentType = "application/octet-stream";
 										}
 										finally {
 											((InputStream) value).close();
 										}
 									}
+									else if (value instanceof byte[]) {
+										content = (byte[]) value;
+									}
 									else if (parameter.getElement().getType().isList()) {
 										throw new RuntimeException("Array inputs are not yet supported");
 									}
 									else if (parameter.getElement().getType() instanceof SimpleType) {
-										throw new RuntimeException("Simple type inputs are not yet supported");
+										SimpleType<?> type = (SimpleType<?>) parameter.getElement().getType();
+										if (type instanceof Marshallable) {
+											String marshal = ((Marshallable) type).marshal(value, parameter.getElement().getProperties());
+											value = marshal.getBytes(charset);
+										}
+										else {
+											throw new RuntimeException("Non-marshallable simple type inputs are not yet supported");
+										}
 									}
 									else {
 										ComplexContent bodyContent = value instanceof ComplexContent ? (ComplexContent) value : ComplexContentWrapperFactory.getInstance().getWrapper().wrap(value);
 		
 										MarshallableBinding binding;
-										WebResponseType requestType = getRequestType();
+										if (requestType == null) {
+											requestType = WebResponseType.JSON;
+										}
 										contentType = requestType.getMimeType();
 										switch(requestType) {
 											case FORM_ENCODED: 
@@ -247,22 +261,36 @@ public class SwaggerServiceInstance implements ServiceInstance {
 										if (format == null) {
 											format = CollectionFormat.CSV;
 										}
-										for (Object child : (Iterable<?>) value) {
+										if (format == CollectionFormat.MULTI) {
+											List<String> values = new ArrayList<String>();
+											for (Object child : (Iterable<?>) value) {
+												values.add(child instanceof String ? (String) child : ConverterFactory.getInstance().getConverter().convert(child, String.class));
+											}
+											if (values.isEmpty()) {
+												continue;
+											}
+											queryParameters.put(parameter.getName(), values);
+										}
+										else {
+											for (Object child : (Iterable<?>) value) {
+												if (first) {
+													first = false;
+												}
+												else {
+													builder.append(format.getCharacter());
+												}
+												builder.append(child instanceof String ? (String) child : ConverterFactory.getInstance().getConverter().convert(child, String.class));
+											}
+											// nothing in iterable
 											if (first) {
-												first = false;
+												continue;
 											}
-											else {
-												builder.append(format.getCharacter());
-											}
-											builder.append(child instanceof String ? (String) child : ConverterFactory.getInstance().getConverter().convert(child, String.class));
+											queryParameters.put(parameter.getName(), Arrays.asList(builder.toString()));
 										}
-										// nothing in iterable
-										if (first) {
-											continue;
-										}
-										value = builder.toString();
 									}
-									queryParameters.put(parameter.getName(), value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class));
+									else {
+										queryParameters.put(parameter.getName(), Arrays.asList(value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class)));
+									}
 								break;
 								case FORMDATA:
 									throw new ServiceException("SWAGGER-0", "Form parameters are currently not supported");
@@ -348,14 +376,16 @@ public class SwaggerServiceInstance implements ServiceInstance {
 			
 			boolean first = true;
 			for (String key : queryParameters.keySet()) {
-				if (first) {
-					first = false;
-					path += "?";
+				for (String value : queryParameters.get(key)) {
+					if (first) {
+						first = false;
+						path += "?";
+					}
+					else {
+						path += "&";
+					}
+					path += key + "=" + value.replace("&", "&amp;");
 				}
-				else {
-					path += "&";
-				}
-				path += key + "=" + queryParameters.get(key).replace("&", "&amp;");
 			}
 
 			final String apiQueryKey = input == null ? null : (String) input.get("authentication/apiQueryKey");
@@ -489,10 +519,14 @@ public class SwaggerServiceInstance implements ServiceInstance {
 							jsonBinding.setIgnoreRootIfArrayWrapper(true);
 							jsonBinding.setAllowRaw(true);
 							jsonBinding.setIgnoreEmptyStrings(true);
+							// lenient by default
+							jsonBinding.setIgnoreUnknownElements(true);
 							binding = jsonBinding;
 						}
 						else if ("application/xml".equalsIgnoreCase(responseContentType) || "text/xml".equalsIgnoreCase(responseContentType)) {
 							XMLBinding xmlBinding = new XMLBinding(unmarshalType, charset);
+							// lenient by default
+							xmlBinding.setIgnoreUndefined(true);
 							binding = xmlBinding;
 						}
 						else {
