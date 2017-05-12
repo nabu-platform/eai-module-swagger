@@ -52,10 +52,12 @@ import be.nabu.libs.types.binding.api.UnmarshallableBinding;
 import be.nabu.libs.types.binding.api.Window;
 import be.nabu.libs.types.binding.form.FormBinding;
 import be.nabu.libs.types.binding.json.JSONBinding;
+import be.nabu.libs.types.binding.json.JSONUnmarshaller;
 import be.nabu.libs.types.binding.xml.XMLBinding;
 import be.nabu.libs.types.properties.AliasProperty;
 import be.nabu.libs.types.properties.MaxOccursProperty;
 import be.nabu.libs.types.structure.Structure;
+import be.nabu.libs.types.structure.StructureGenerator;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.io.api.ByteBuffer;
 import be.nabu.utils.io.api.ReadableContainer;
@@ -478,8 +480,9 @@ public class SwaggerServiceInstance implements ServiceInstance {
 								String content = new String(IOUtils.toBytes(readable), charset);
 								// instead of returning the base64 as is with content type "application/octet-stream" or the like
 								// some applications send it back with content type "application/json" and wrap the base64 in quotes to indicate a string
+								// return of non-object and non-arrays in json is only recently allowed and because it is by definition not a complex type, not directly supported by the binding API
 								if (((SimpleType<?>) chosenResponse.getElement().getType()).getInstanceClass().equals(byte[].class) && content.startsWith("\"") && content.endsWith("\"")) {
-									content = content.substring(1, content.length() - 1);
+									content = JSONUnmarshaller.unescape(content.substring(1, content.length() - 1));
 								}
 								unmarshal = ((Unmarshallable<?>) chosenResponse.getElement().getType()).unmarshal(content, chosenResponse.getElement().getProperties());
 							}
@@ -521,6 +524,12 @@ public class SwaggerServiceInstance implements ServiceInstance {
 							jsonBinding.setIgnoreEmptyStrings(true);
 							// lenient by default
 							jsonBinding.setIgnoreUnknownElements(true);
+							// also allow dynamic generation by default
+							jsonBinding.setAllowDynamicElements(true);
+							// but don't add it to the original type
+							jsonBinding.setAddDynamicElementDefinitions(false);
+							// use structures for dynamic parsing
+							jsonBinding.setComplexTypeGenerator(new StructureGenerator());
 							binding = jsonBinding;
 						}
 						else if ("application/xml".equalsIgnoreCase(responseContentType) || "text/xml".equalsIgnoreCase(responseContentType)) {

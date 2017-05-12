@@ -24,6 +24,7 @@ import be.nabu.eai.module.web.application.WebFragmentProvider;
 import be.nabu.eai.module.web.application.api.RESTFragment;
 import be.nabu.eai.module.web.application.api.RESTFragmentProvider;
 import be.nabu.eai.repository.DocumentationManager;
+import be.nabu.eai.repository.EAIResourceRepository;
 import be.nabu.eai.repository.api.Documented;
 import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.artifacts.jaxb.JAXBArtifact;
@@ -130,10 +131,10 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 	
 	public String getSwagger(WebApplication artifact, String path) {
 		String key = getKey(artifact, path);
-		if (!swaggers.containsKey(key)) {
+		if (!swaggers.containsKey(key) || EAIResourceRepository.isDevelopment()) {
 			synchronized(this) {
 				try {
-					if (!swaggers.containsKey(key)) {
+					if (!swaggers.containsKey(key) || EAIResourceRepository.isDevelopment()) {
 						SwaggerDefinitionImpl definition = new SwaggerDefinitionImpl(getId());
 						SwaggerInfoImpl info = new SwaggerInfoImpl();
 						Documented documented = DocumentationManager.getDocumentation(getRepository(), getId());
@@ -149,7 +150,10 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						definition.setConsumes(Arrays.asList("application/json", "application/xml"));
 						definition.setProduces(definition.getConsumes());
 						Integer port = artifact.getConfig().getVirtualHost().getConfig().getServer().getConfig().getPort();
-						definition.setHost(artifact.getConfig().getVirtualHost().getConfig().getHost() + (port == null ? null : ":" + port));
+						// only set the host if you have one
+						if (artifact.getConfig().getVirtualHost().getConfig().getHost() != null) {
+							definition.setHost(artifact.getConfig().getVirtualHost().getConfig().getHost() + (port == null ? null : ":" + port));
+						}
 						boolean isSecure = artifact.getConfig().getVirtualHost().getConfig().getKeyAlias() != null
 								&& artifact.getConfig().getVirtualHost().getConfig().getServer().getConfig().getKeystore() != null;
 						definition.setSchemes(Arrays.asList(isSecure ? "https" : "http"));
@@ -162,7 +166,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							definition.setSecurityDefinitions(Arrays.asList(security));
 						}
 						
-						definition.setPaths(analyzeAllPaths((ModifiableTypeRegistry) definition.getRegistry(), artifact, getRelativePath(artifact.getServerPath(), path), false));
+						definition.setPaths(analyzeAllPaths((ModifiableTypeRegistry) definition.getRegistry(), artifact, getRelativePath(artifact.getServerPath(), path), getConfig().isIncludeAll()));
 						
 						ByteArrayOutputStream output = new ByteArrayOutputStream();
 						SwaggerFormatter swaggerFormatter = new SwaggerFormatter();
