@@ -196,6 +196,18 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 				documentation = DocumentationManager.getDocumentation(getRepository(), ((Artifact) provider).getId());
 			}
 			paths.addAll(analyzePaths(provider instanceof Artifact ? ((Artifact) provider).getId() : null, documentation, registry, provider.getWebFragments(), path));
+			if (provider instanceof RESTFragmentProvider && ((RESTFragmentProvider) provider).getFragments() != null) {
+				for (RESTFragment child : ((RESTFragmentProvider) provider).getFragments()) {
+					mapRESTFragment(
+						provider instanceof Artifact ? ((Artifact) provider).getId() : null, 
+						documentation, 
+						registry, 
+						path, 
+						paths, 
+						child
+					);
+				}
+			}
 		}
 		for (WebFragment fragment : provider.getWebFragments()) {
 			if (fragment instanceof WebFragmentProvider) {
