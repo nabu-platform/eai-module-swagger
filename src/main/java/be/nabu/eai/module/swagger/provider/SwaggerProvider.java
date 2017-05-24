@@ -204,7 +204,8 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						registry, 
 						path, 
 						paths, 
-						child
+						child,
+						child.getDocumentation()
 					);
 				}
 			}
@@ -428,20 +429,22 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 				}
 			}
 			else if (fragment instanceof RESTFragment) {
-				mapRESTFragment(parentId, parentDocumentation, registry, path, paths, (RESTFragment) fragment);
+				mapRESTFragment(parentId, parentDocumentation, registry, path, paths, (RESTFragment) fragment, null);
 			}
 			else if (fragment instanceof RESTFragmentProvider) {
 				Documented documentation = DocumentationManager.getDocumentation(getRepository(), fragment.getId());
 				for (RESTFragment child : ((RESTFragmentProvider) fragment).getFragments()) {
-					mapRESTFragment(parentId, documentation == null ? parentDocumentation : documentation, registry, path, paths, child);
+					mapRESTFragment(parentId, documentation == null ? parentDocumentation : documentation, registry, path, paths, child, child.getDocumentation());
 				}
 			}
 		}
 		return paths;
 	}
 
-	private void mapRESTFragment(String parentId, Documented parentDocumentation, ModifiableTypeRegistry registry, String path, List<SwaggerPath> paths, RESTFragment fragment) {
-		Documented documentation = DocumentationManager.getDocumentation(getRepository(), fragment.getId());
+	private void mapRESTFragment(String parentId, Documented parentDocumentation, ModifiableTypeRegistry registry, String path, List<SwaggerPath> paths, RESTFragment fragment, Documented documentation) {
+		if (documentation == null) {
+			documentation = DocumentationManager.getDocumentation(getRepository(), fragment.getId());
+		}
 		String fullPath = getRelativePath(path, fragment.getPath());
 		SwaggerPathImpl swaggerPath = getSwaggerPath(paths, fullPath);
 		
@@ -453,7 +456,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 			method.setSummary(documentation.getTitle());
 			method.setDescription(documentation.getDescription());
 		}
-		if (parentDocumentation != null && method.getTags() == null) {
+		if (parentDocumentation != null && method.getTags() == null && parentDocumentation.getTags() != null) {
 			method.setTags(new ArrayList<String>(parentDocumentation.getTags()));
 		}
 		if (method.getTags() == null) {

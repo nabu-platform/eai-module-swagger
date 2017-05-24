@@ -1,5 +1,7 @@
 package be.nabu.eai.module.swagger.client;
 
+import java.util.List;
+
 import be.nabu.libs.http.HTTPCodes;
 import be.nabu.libs.services.api.DefinedServiceInterface;
 import be.nabu.libs.services.api.ServiceInterface;
@@ -30,9 +32,9 @@ public class SwaggerProxyInterface implements DefinedServiceInterface {
 	private String id;
 
 	private Structure input, output;
-	private SecurityType security;
+	private List<SecurityType> security;
 	
-	public SwaggerProxyInterface(String id, SwaggerDefinition definition, SwaggerPath path, SwaggerMethod method, SecurityType security) {
+	public SwaggerProxyInterface(String id, SwaggerDefinition definition, SwaggerPath path, SwaggerMethod method, List<SecurityType> security) {
 		this.id = id;
 		this.definition = definition;
 		this.path = path;
@@ -62,8 +64,10 @@ public class SwaggerProxyInterface implements DefinedServiceInterface {
 		if (security != null) {
 			Structure authentication = new Structure();
 			authentication.setName("authentication");
-			// the api key should not be used unless we add some more configuration options but for now this will do...
-			addAuthentication(authentication, "apiKey", ParameterLocation.HEADER, security);
+			for (SecurityType type : security) {
+				// the api key should not be used unless we add some more configuration options but for now this will do...
+				addAuthentication(authentication, "apiKey", ParameterLocation.HEADER, type);
+			}
 			input.add(new ComplexElementImpl("authentication", authentication, input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
 		}
 		else if (method.getSecurity() != null && definition.getSecurityDefinitions() != null) {

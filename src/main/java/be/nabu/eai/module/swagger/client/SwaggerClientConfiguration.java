@@ -22,7 +22,7 @@ public class SwaggerClientConfiguration {
 	private Charset charset;
 	private String username, password;
 	private Boolean supportGzip, sanitizeOutput;
-	private SecurityType security;
+	private List<SecurityType> security;
 	private String host, basePath, scheme;
 	
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
@@ -72,10 +72,10 @@ public class SwaggerClientConfiguration {
 		this.sanitizeOutput = sanitizeOutput;
 	}
 	
-	public SecurityType getSecurity() {
+	public List<SecurityType> getSecurity() {
 		return security;
 	}
-	public void setSecurity(SecurityType security) {
+	public void setSecurity(List<SecurityType> security) {
 		this.security = security;
 	}
 	

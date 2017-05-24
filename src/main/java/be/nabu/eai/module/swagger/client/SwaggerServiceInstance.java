@@ -30,6 +30,7 @@ import be.nabu.libs.http.core.HTTPUtils;
 import be.nabu.libs.http.glue.GlueListener;
 import be.nabu.libs.property.ValueUtils;
 import be.nabu.libs.property.api.Value;
+import be.nabu.libs.resources.URIUtils;
 import be.nabu.libs.services.api.ExecutionContext;
 import be.nabu.libs.services.api.Service;
 import be.nabu.libs.services.api.ServiceException;
@@ -253,7 +254,8 @@ public class SwaggerServiceInstance implements ServiceInstance {
 									}
 								break;
 								case PATH:
-									path = path.replaceAll("\\{[\\s]*" + Pattern.quote(parameter.getName()) + "\\b[^}]*\\}", Matcher.quoteReplacement(value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class)));
+									path = path.replaceAll("\\{[\\s]*" + Pattern.quote(parameter.getName()) + "\\b[^}]*\\}",
+										URIUtils.encodeURIComponent(Matcher.quoteReplacement(value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class)), false));
 								break;
 								case QUERY:
 									if (value instanceof Iterable) {
@@ -386,7 +388,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 					else {
 						path += "&";
 					}
-					path += key + "=" + value.replace("&", "&amp;");
+					path += URIUtils.encodeURIComponent(key, false) + "=" + URIUtils.encodeURIComponent(value, false);
 				}
 			}
 
