@@ -24,6 +24,7 @@ public class SwaggerClientConfiguration {
 	private Boolean supportGzip, sanitizeOutput;
 	private List<SecurityType> security;
 	private String host, basePath, scheme;
+	private boolean throwException;
 	
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
 	public HTTPClientArtifact getHttpClient() {
@@ -102,6 +103,13 @@ public class SwaggerClientConfiguration {
 	}
 	public void setScheme(String scheme) {
 		this.scheme = scheme;
+	}
+
+	public boolean isThrowException() {
+		return throwException;
+	}
+	public void setThrowException(boolean throwException) {
+		this.throwException = throwException;
 	}
 
 	public static class SchemeEnumerator implements Enumerator {

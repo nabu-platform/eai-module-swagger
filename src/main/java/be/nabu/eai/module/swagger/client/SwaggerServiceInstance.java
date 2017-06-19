@@ -22,8 +22,8 @@ import be.nabu.libs.authentication.api.principals.BasicPrincipal;
 import be.nabu.libs.converter.ConverterFactory;
 import be.nabu.libs.http.api.HTTPRequest;
 import be.nabu.libs.http.api.HTTPResponse;
+import be.nabu.libs.http.api.client.HTTPClient;
 import be.nabu.libs.http.client.BasicAuthentication;
-import be.nabu.libs.http.client.DefaultHTTPClient;
 import be.nabu.libs.http.client.NTLMPrincipalImpl;
 import be.nabu.libs.http.core.DefaultHTTPRequest;
 import be.nabu.libs.http.core.HTTPUtils;
@@ -431,8 +431,8 @@ public class SwaggerServiceInstance implements ServiceInstance {
 					}
 				}
 			}
-			
-			DefaultHTTPClient client = Services.getTransactionable(executionContext, input == null ? null : (String) input.get("transactionId"), service.getClient().getConfig().getHttpClient()).getClient();
+
+			HTTPClient client = Services.getTransactionable(executionContext, input == null ? null : (String) input.get("transactionId"), service.getClient().getConfig().getHttpClient()).getClient();
 			HTTPResponse response = client.execute(request, principal, isSecure(), true);
 			
 			SwaggerResponse chosenResponse = null;
@@ -451,7 +451,8 @@ public class SwaggerServiceInstance implements ServiceInstance {
 					chosenResponse = defaultResponse;
 				}
 			}
-			if (chosenResponse == null) {
+			
+			if (chosenResponse == null || ((response.getCode() < 200 || response.getCode() >= 300) && service.getClient().getConfig().isThrowException())) {
 				byte [] content = null;
 				if (response.getContent() instanceof ContentPart) {
 					ReadableContainer<ByteBuffer> readable = ((ContentPart) response.getContent()).getReadable();

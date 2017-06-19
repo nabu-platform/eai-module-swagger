@@ -150,13 +150,25 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						definition.setConsumes(Arrays.asList("application/json", "application/xml"));
 						definition.setProduces(definition.getConsumes());
 						Integer port = artifact.getConfig().getVirtualHost().getConfig().getServer().getConfig().getPort();
-						// only set the host if you have one
-						if (artifact.getConfig().getVirtualHost().getConfig().getHost() != null) {
-							definition.setHost(artifact.getConfig().getVirtualHost().getConfig().getHost() + (port == null ? null : ":" + port));
+						
+						if (getConfig().getHost() != null) {
+							definition.setHost(getConfig().getHost());
 						}
+						// only set the host if you have one
+						else if (artifact.getConfig().getVirtualHost().getConfig().getHost() != null) {
+							definition.setHost(artifact.getConfig().getVirtualHost().getConfig().getHost() + (port == null ? "" : ":" + port));
+						}
+						
 						boolean isSecure = artifact.getConfig().getVirtualHost().getConfig().getKeyAlias() != null
-								&& artifact.getConfig().getVirtualHost().getConfig().getServer().getConfig().getKeystore() != null;
-						definition.setSchemes(Arrays.asList(isSecure ? "https" : "http"));
+							&& artifact.getConfig().getVirtualHost().getConfig().getServer().getConfig().getKeystore() != null;
+						
+						// if we explicitly configure a scheme, use that (could be due to ssl offloading or the like)
+						if (getConfig().getScheme() != null) {
+							definition.setSchemes(Arrays.asList(getConfig().getScheme().toString().toLowerCase()));
+						}
+						else {
+							definition.setSchemes(Arrays.asList(isSecure ? "https" : "http"));
+						}
 						definition.setVersion("2.0");
 						
 						if (artifact.getConfig().getPasswordAuthenticationService() != null) {
@@ -167,6 +179,11 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						}
 						
 						definition.setPaths(analyzeAllPaths((ModifiableTypeRegistry) definition.getRegistry(), artifact, getRelativePath(artifact.getServerPath(), path), getConfig().isIncludeAll()));
+						
+						SwaggerSecurityDefinitionImpl swaggerSecurityDefinitionImpl = new SwaggerSecurityDefinitionImpl();
+						swaggerSecurityDefinitionImpl.setType(SecurityType.basic);
+						swaggerSecurityDefinitionImpl.setName("basic");
+						definition.setSecurityDefinitions(Arrays.asList(swaggerSecurityDefinitionImpl));
 						
 						ByteArrayOutputStream output = new ByteArrayOutputStream();
 						SwaggerFormatter swaggerFormatter = new SwaggerFormatter();
@@ -239,6 +256,10 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						String fullPath = getRelativePath(path, iface.getConfig().getPath());
 						SwaggerPathImpl swaggerPath = getSwaggerPath(paths, fullPath);
 						
+						if (swaggerPath == null) {
+							continue;
+						}
+						
 						SwaggerMethodImpl method = new SwaggerMethodImpl();
 						if (documentation != null) {
 							if (documentation.getTags() != null) {
@@ -257,6 +278,22 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						method.setConsumes(Arrays.asList("application/json", "application/xml"));
 						method.setProduces(Arrays.asList("application/json", "application/xml", "text/html"));
 						method.setOperationId(rest.getId());
+						
+						if (iface.getConfig().getPermissionContext() != null) {
+							Map<String, Object> extensions = new HashMap<String, Object>();
+							if (iface.getConfig().getPermissionContext().startsWith("=")) {
+								if (iface.getConfig().getPermissionContext().startsWith("=input/path/")) {
+									extensions.put("context-location", "path");
+									extensions.put("context-name", iface.getConfig().getPermissionContext().substring("=input/path/".length()));
+								}
+								if (iface.getConfig().getPermissionContext().startsWith("=input/query/")) {
+									extensions.put("context-location", "query");
+									extensions.put("context-name", iface.getConfig().getPermissionContext().substring("=input/query/".length()));
+								}
+							}
+							method.setExtensions(extensions);
+						}
+						
 						if (iface.getConfig().getRoles() != null && !iface.getConfig().getRoles().isEmpty() && !iface.getConfig().getRoles().equals(Arrays.asList("guest"))) {
 							SwaggerSecuritySettingImpl security = new SwaggerSecuritySettingImpl();
 							security.setName("basic");
@@ -448,86 +485,88 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		String fullPath = getRelativePath(path, fragment.getPath());
 		SwaggerPathImpl swaggerPath = getSwaggerPath(paths, fullPath);
 		
-		SwaggerMethodImpl method = new SwaggerMethodImpl();
-		if (documentation != null) {
-			if (documentation.getTags() != null) {
-				method.setTags(new ArrayList<String>(documentation.getTags()));
+		if (swaggerPath != null) {
+			SwaggerMethodImpl method = new SwaggerMethodImpl();
+			if (documentation != null) {
+				if (documentation.getTags() != null) {
+					method.setTags(new ArrayList<String>(documentation.getTags()));
+				}
+				method.setSummary(documentation.getTitle());
+				method.setDescription(documentation.getDescription());
 			}
-			method.setSummary(documentation.getTitle());
-			method.setDescription(documentation.getDescription());
-		}
-		if (parentDocumentation != null && method.getTags() == null && parentDocumentation.getTags() != null) {
-			method.setTags(new ArrayList<String>(parentDocumentation.getTags()));
-		}
-		if (method.getTags() == null) {
-			method.setTags(Arrays.asList(parentId));
-		}
-		method.setMethod(fragment.getMethod().toString().toLowerCase());
-		method.setConsumes(fragment.getConsumes());
-		method.setProduces(fragment.getProduces());
-		method.setOperationId(fragment.getId());
-		
-		List<SwaggerParameter> parameters = new ArrayList<SwaggerParameter>();
-		for (Element<?> element : fragment.getHeaderParameters()) {
-			parameters.add(createParameter(element, ParameterLocation.HEADER));
-		}
-		for (Element<?> element : fragment.getQueryParameters()) {
-			parameters.add(createParameter(element, ParameterLocation.QUERY));
-		}
-		for (Element<?> element : fragment.getPathParameters()) {
-			parameters.add(createParameter(element, ParameterLocation.PATH));
-		}
-		
-		if (fragment.getInput() != null) {
-			SwaggerParameterImpl parameter = new SwaggerParameterImpl();
-			parameter.setName("body");
-			parameter.setLocation(ParameterLocation.BODY);
-			String id = fragment.getInput() instanceof DefinedType ? ((DefinedType) fragment.getInput()).getId() : fragment.getId() + "Input";
-			ComplexType complexType = registry.getComplexType(getId(), id);
-			if (complexType == null) {
-				complexType = new ComplexTypeWrapper((ComplexType) fragment.getInput(), getId(), id);
-				registry.register(complexType);
+			if (parentDocumentation != null && method.getTags() == null && parentDocumentation.getTags() != null) {
+				method.setTags(new ArrayList<String>(parentDocumentation.getTags()));
 			}
-			parameter.setElement(new ComplexElementImpl("body", complexType, (ComplexType) null));
-			parameters.add(parameter);
-		}
-		method.setParameters(parameters);
-		
-		List<SwaggerResponse> responses = new ArrayList<SwaggerResponse>();
-		
-		if (fragment.getOutput() != null) {
-			SwaggerResponseImpl c200 = new SwaggerResponseImpl();
-			c200.setCode(200);
-			c200.setDescription("The request was successful");
-			String id = fragment.getOutput() instanceof DefinedType ? ((DefinedType) fragment.getOutput()).getId() : fragment.getId() + "Output";
-			ComplexType complexType = registry.getComplexType(getId(), id);
-			if (complexType == null) {
-				complexType = new ComplexTypeWrapper((ComplexType) fragment.getOutput(), getId(), id);
-				registry.register(complexType);
+			if (method.getTags() == null) {
+				method.setTags(Arrays.asList(parentId));
 			}
-			c200.setElement(new ComplexElementImpl("body", complexType, (ComplexType) null));
-			responses.add(c200);
-		}
+			method.setMethod(fragment.getMethod().toString().toLowerCase());
+			method.setConsumes(fragment.getConsumes());
+			method.setProduces(fragment.getProduces());
+			method.setOperationId(fragment.getId());
 			
-		// every response can lead to an empty return (theoretically)
-		SwaggerResponseImpl c204 = new SwaggerResponseImpl();
-		c204.setCode(204);
-		c204.setDescription("The request was successful but no content will be returned");
-		responses.add(c204);
-		
-		// if it is a get, we can return a 304
-		if ("GET".equalsIgnoreCase(fragment.getMethod())) {
-			SwaggerResponseImpl c304 = new SwaggerResponseImpl();
-			c304.setCode(304);
-			c304.setDescription("The resource has not changed since the last modified");
-			responses.add(c304);
+			List<SwaggerParameter> parameters = new ArrayList<SwaggerParameter>();
+			for (Element<?> element : fragment.getHeaderParameters()) {
+				parameters.add(createParameter(element, ParameterLocation.HEADER));
+			}
+			for (Element<?> element : fragment.getQueryParameters()) {
+				parameters.add(createParameter(element, ParameterLocation.QUERY));
+			}
+			for (Element<?> element : fragment.getPathParameters()) {
+				parameters.add(createParameter(element, ParameterLocation.PATH));
+			}
+			
+			if (fragment.getInput() != null) {
+				SwaggerParameterImpl parameter = new SwaggerParameterImpl();
+				parameter.setName("body");
+				parameter.setLocation(ParameterLocation.BODY);
+				String id = fragment.getInput() instanceof DefinedType ? ((DefinedType) fragment.getInput()).getId() : fragment.getId() + "Input";
+				ComplexType complexType = registry.getComplexType(getId(), id);
+				if (complexType == null) {
+					complexType = new ComplexTypeWrapper((ComplexType) fragment.getInput(), getId(), id);
+					registry.register(complexType);
+				}
+				parameter.setElement(new ComplexElementImpl("body", complexType, (ComplexType) null));
+				parameters.add(parameter);
+			}
+			method.setParameters(parameters);
+			
+			List<SwaggerResponse> responses = new ArrayList<SwaggerResponse>();
+			
+			if (fragment.getOutput() != null) {
+				SwaggerResponseImpl c200 = new SwaggerResponseImpl();
+				c200.setCode(200);
+				c200.setDescription("The request was successful");
+				String id = fragment.getOutput() instanceof DefinedType ? ((DefinedType) fragment.getOutput()).getId() : fragment.getId() + "Output";
+				ComplexType complexType = registry.getComplexType(getId(), id);
+				if (complexType == null) {
+					complexType = new ComplexTypeWrapper((ComplexType) fragment.getOutput(), getId(), id);
+					registry.register(complexType);
+				}
+				c200.setElement(new ComplexElementImpl("body", complexType, (ComplexType) null));
+				responses.add(c200);
+			}
+				
+			// every response can lead to an empty return (theoretically)
+			SwaggerResponseImpl c204 = new SwaggerResponseImpl();
+			c204.setCode(204);
+			c204.setDescription("The request was successful but no content will be returned");
+			responses.add(c204);
+			
+			// if it is a get, we can return a 304
+			if ("GET".equalsIgnoreCase(fragment.getMethod())) {
+				SwaggerResponseImpl c304 = new SwaggerResponseImpl();
+				c304.setCode(304);
+				c304.setDescription("The resource has not changed since the last modified");
+				responses.add(c304);
+			}
+			
+			method.setResponses(responses);
+			if (swaggerPath.getMethods() == null) {
+				swaggerPath.setMethods(new ArrayList<SwaggerMethod>());
+			}
+			swaggerPath.getMethods().add(method);
 		}
-		
-		method.setResponses(responses);
-		if (swaggerPath.getMethods() == null) {
-			swaggerPath.setMethods(new ArrayList<SwaggerMethod>());
-		}
-		swaggerPath.getMethods().add(method);
 	}
 
 	private SwaggerParameterImpl createParameter(Element<?> element, ParameterLocation location) {
@@ -542,6 +581,10 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		SwaggerPathImpl swaggerPath = null;
 		if (getConfig().getBasePath() != null && fullPath.startsWith(getConfig().getBasePath())) {
 			fullPath = fullPath.substring(getConfig().getBasePath().length());
+		}
+		// if it does not match the base path, ignore it
+		else if (getConfig().getBasePath() != null && !getConfig().getBasePath().isEmpty() && !getConfig().getBasePath().equals("/")) {
+			return null;
 		}
 		for (SwaggerPath possible : paths) {
 			if (possible.getPath().equals(fullPath)) {
