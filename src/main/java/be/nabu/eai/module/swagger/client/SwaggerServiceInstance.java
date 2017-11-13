@@ -36,7 +36,7 @@ import be.nabu.libs.services.api.Service;
 import be.nabu.libs.services.api.ServiceException;
 import be.nabu.libs.services.api.ServiceInstance;
 import be.nabu.libs.swagger.api.SwaggerParameter;
-import be.nabu.libs.swagger.api.SwaggerParameter.CollectionFormat;
+import be.nabu.libs.types.base.CollectionFormat;
 import be.nabu.libs.swagger.api.SwaggerResponse;
 import be.nabu.libs.swagger.api.SwaggerSecurityDefinition;
 import be.nabu.libs.swagger.api.SwaggerSecuritySetting;

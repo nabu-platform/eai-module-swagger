@@ -1,5 +1,7 @@
 package be.nabu.eai.module.swagger.provider;
 
+import java.util.List;
+
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlType;
 
@@ -8,12 +10,14 @@ import be.nabu.eai.api.Comment;
 import be.nabu.eai.api.LargeText;
 
 @XmlRootElement(name = "swaggerProvider")
-@XmlType(propOrder = { "version", "basePath", "termsOfService", "path", "host", "scheme", "includeAll" })
+@XmlType(propOrder = { "version", "basePath", "termsOfService", "path", "host", "scheme", "includeAll", "documentedRoles", "allowedRoles", "limitToUser" })
 public class SwaggerProviderConfiguration {
 
 	private String path, termsOfService, version, basePath, host;
 	private Scheme scheme;
 	private boolean includeAll;
+	private List<String> documentedRoles, allowedRoles;
+	private boolean limitToUser;
 
 	@Advanced
 	public String getPath() {
@@ -73,4 +77,29 @@ public class SwaggerProviderConfiguration {
 	public enum Scheme {
 		HTTP, HTTPS
 	}
+
+	@Comment(title = "If any roles are set here, it will only document fragments belonging to those roles")
+	public List<String> getDocumentedRoles() {
+		return documentedRoles;
+	}
+	public void setDocumentedRoles(List<String> documentedRoles) {
+		this.documentedRoles = documentedRoles;
+	}
+	
+	@Comment(title = "The roles that are allowed to request this swagger")
+	public List<String> getAllowedRoles() {
+		return allowedRoles;
+	}
+	public void setAllowedRoles(List<String> allowedRoles) {
+		this.allowedRoles = allowedRoles;
+	}
+	
+	@Comment(title = "If set to true, the swagger will only contain operations that the requesting user can perform")
+	public boolean isLimitToUser() {
+		return limitToUser;
+	}
+	public void setLimitToUser(boolean limitToUser) {
+		this.limitToUser = limitToUser;
+	}
+	
 }

@@ -11,14 +11,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import be.nabu.eai.module.http.server.RepositoryExceptionFormatter.StructuredResponse;
+import be.nabu.eai.module.rest.RESTUtils;
 import be.nabu.eai.module.rest.WebMethod;
 import be.nabu.eai.module.rest.provider.RESTService;
 import be.nabu.eai.module.rest.provider.iface.RESTInterfaceArtifact;
 import be.nabu.eai.module.web.application.WebApplication;
+import be.nabu.eai.module.web.application.WebApplicationUtils;
 import be.nabu.eai.module.web.application.WebFragment;
 import be.nabu.eai.module.web.application.WebFragmentProvider;
 import be.nabu.eai.module.web.application.api.RESTFragment;
@@ -30,6 +30,7 @@ import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.artifacts.jaxb.JAXBArtifact;
 import be.nabu.libs.artifacts.api.Artifact;
 import be.nabu.libs.authentication.api.Permission;
+import be.nabu.libs.authentication.api.Token;
 import be.nabu.libs.events.api.EventHandler;
 import be.nabu.libs.events.api.EventSubscription;
 import be.nabu.libs.http.HTTPCodes;
@@ -49,7 +50,7 @@ import be.nabu.libs.services.api.ServiceInstance;
 import be.nabu.libs.services.api.ServiceInterface;
 import be.nabu.libs.swagger.api.SwaggerMethod;
 import be.nabu.libs.swagger.api.SwaggerParameter;
-import be.nabu.libs.swagger.api.SwaggerParameter.CollectionFormat;
+import be.nabu.libs.types.base.CollectionFormat;
 import be.nabu.libs.swagger.api.SwaggerParameter.ParameterLocation;
 import be.nabu.libs.swagger.api.SwaggerPath;
 import be.nabu.libs.swagger.api.SwaggerResponse;
@@ -76,7 +77,6 @@ import be.nabu.libs.types.base.ComplexElementImpl;
 import be.nabu.libs.types.base.SimpleElementImpl;
 import be.nabu.libs.types.base.ValueImpl;
 import be.nabu.libs.types.java.BeanResolver;
-import be.nabu.libs.types.properties.MaxOccursProperty;
 import be.nabu.libs.types.properties.MinOccursProperty;
 import be.nabu.libs.types.structure.Structure;
 import be.nabu.utils.io.IOUtils;
@@ -107,7 +107,14 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						URI uri = HTTPUtils.getURI(request, false);
 						String uriPath = URIUtils.normalize(uri.getPath());
 						if (fullPath.equals(uriPath)) {
-							String swagger = getSwagger(artifact, path);
+							String swagger;
+							// if we limit it to the user, it is not cached
+							if (getConfig().isLimitToUser()) {
+								swagger = buildSwagger(artifact, path, artifact, WebApplicationUtils.getToken(artifact, request));
+							}
+							else {
+								swagger = getSwagger(artifact, path);
+							}
 							if (swagger == null) {
 								throw new HTTPException(500, "Could not construct swagger");
 							}
@@ -135,62 +142,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 			synchronized(this) {
 				try {
 					if (!swaggers.containsKey(key) || EAIResourceRepository.isDevelopment()) {
-						SwaggerDefinitionImpl definition = new SwaggerDefinitionImpl(getId());
-						SwaggerInfoImpl info = new SwaggerInfoImpl();
-						Documented documented = DocumentationManager.getDocumentation(getRepository(), getId());
-						// title and version are mandatory
-						info.setTitle(documented == null || documented.getTitle() == null ? getId() : documented.getTitle());
-						info.setVersion(getConfig().getVersion() == null ? "1.0" : getConfig().getVersion());
-						info.setDescription(documented == null ? null : documented.getDescription());
-						info.setTermsOfService(getConfig().getTermsOfService());
-						definition.setInfo(info);
-						definition.setRegistry(new TypeRegistryImpl());
-						// the rest services will always use the full path
-						definition.setBasePath(getConfig().getBasePath() == null ? "/" : getConfig().getBasePath());
-						definition.setConsumes(Arrays.asList("application/json", "application/xml"));
-						definition.setProduces(definition.getConsumes());
-						Integer port = artifact.getConfig().getVirtualHost().getConfig().getServer().getConfig().getPort();
-						
-						if (getConfig().getHost() != null) {
-							definition.setHost(getConfig().getHost());
-						}
-						// only set the host if you have one
-						else if (artifact.getConfig().getVirtualHost().getConfig().getHost() != null) {
-							definition.setHost(artifact.getConfig().getVirtualHost().getConfig().getHost() + (port == null ? "" : ":" + port));
-						}
-						
-						boolean isSecure = artifact.getConfig().getVirtualHost().getConfig().getKeyAlias() != null
-							&& artifact.getConfig().getVirtualHost().getConfig().getServer().getConfig().getKeystore() != null;
-						
-						// if we explicitly configure a scheme, use that (could be due to ssl offloading or the like)
-						if (getConfig().getScheme() != null) {
-							definition.setSchemes(Arrays.asList(getConfig().getScheme().toString().toLowerCase()));
-						}
-						else {
-							definition.setSchemes(Arrays.asList(isSecure ? "https" : "http"));
-						}
-						definition.setVersion("2.0");
-						
-						if (artifact.getConfig().getPasswordAuthenticationService() != null) {
-							SwaggerSecurityDefinitionImpl security = new SwaggerSecurityDefinitionImpl();
-							security.setType(SecurityType.basic);
-							security.setName("basic");
-							definition.setSecurityDefinitions(Arrays.asList(security));
-						}
-						
-						definition.setPaths(analyzeAllPaths((ModifiableTypeRegistry) definition.getRegistry(), artifact, getRelativePath(artifact.getServerPath(), path), getConfig().isIncludeAll()));
-						
-						SwaggerSecurityDefinitionImpl swaggerSecurityDefinitionImpl = new SwaggerSecurityDefinitionImpl();
-						swaggerSecurityDefinitionImpl.setType(SecurityType.basic);
-						swaggerSecurityDefinitionImpl.setName("basic");
-						definition.setSecurityDefinitions(Arrays.asList(swaggerSecurityDefinitionImpl));
-						
-						ByteArrayOutputStream output = new ByteArrayOutputStream();
-						SwaggerFormatter swaggerFormatter = new SwaggerFormatter();
-						swaggerFormatter.setExpandInline(true);
-						swaggerFormatter.setAllowDefinedTypeReferences(true);
-						swaggerFormatter.format(definition, output);
-						swaggers.put(key, new String(output.toByteArray(), "UTF-8"));
+						swaggers.put(key, buildSwagger(artifact, path, artifact, null));
 					}
 				}
 				catch (IOException e) {
@@ -200,8 +152,67 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		}
 		return swaggers.get(key);
 	}
+
+	private String buildSwagger(WebApplication artifact, String path, WebApplication application, Token token) throws IOException {
+		SwaggerDefinitionImpl definition = new SwaggerDefinitionImpl(getId());
+		SwaggerInfoImpl info = new SwaggerInfoImpl();
+		Documented documented = DocumentationManager.getDocumentation(getRepository(), getId());
+		// title and version are mandatory
+		info.setTitle(documented == null || documented.getTitle() == null ? getId() : documented.getTitle());
+		info.setVersion(getConfig().getVersion() == null ? "1.0" : getConfig().getVersion());
+		info.setDescription(documented == null ? null : documented.getDescription());
+		info.setTermsOfService(getConfig().getTermsOfService());
+		definition.setInfo(info);
+		definition.setRegistry(new TypeRegistryImpl());
+		// the rest services will always use the full path
+		definition.setBasePath(getConfig().getBasePath() == null ? "/" : getConfig().getBasePath());
+		definition.setConsumes(Arrays.asList("application/json", "application/xml"));
+		definition.setProduces(definition.getConsumes());
+		Integer port = artifact.getConfig().getVirtualHost().getConfig().getServer().getConfig().getPort();
+		
+		if (getConfig().getHost() != null) {
+			definition.setHost(getConfig().getHost());
+		}
+		// only set the host if you have one
+		else if (artifact.getConfig().getVirtualHost().getConfig().getHost() != null) {
+			definition.setHost(artifact.getConfig().getVirtualHost().getConfig().getHost() + (port == null ? "" : ":" + port));
+		}
+		
+		boolean isSecure = artifact.getConfig().getVirtualHost().getConfig().getKeyAlias() != null
+			&& artifact.getConfig().getVirtualHost().getConfig().getServer().getConfig().getKeystore() != null;
+		
+		// if we explicitly configure a scheme, use that (could be due to ssl offloading or the like)
+		if (getConfig().getScheme() != null) {
+			definition.setSchemes(Arrays.asList(getConfig().getScheme().toString().toLowerCase()));
+		}
+		else {
+			definition.setSchemes(Arrays.asList(isSecure ? "https" : "http"));
+		}
+		definition.setVersion("2.0");
+		
+		if (artifact.getConfig().getPasswordAuthenticationService() != null) {
+			SwaggerSecurityDefinitionImpl security = new SwaggerSecurityDefinitionImpl();
+			security.setType(SecurityType.basic);
+			security.setName("basic");
+			definition.setSecurityDefinitions(Arrays.asList(security));
+		}
+		
+		definition.setPaths(analyzeAllPaths((ModifiableTypeRegistry) definition.getRegistry(), artifact, getRelativePath(artifact.getServerPath(), path), getConfig().isIncludeAll(), application, token));
+		
+		SwaggerSecurityDefinitionImpl swaggerSecurityDefinitionImpl = new SwaggerSecurityDefinitionImpl();
+		swaggerSecurityDefinitionImpl.setType(SecurityType.basic);
+		swaggerSecurityDefinitionImpl.setName("basic");
+		definition.setSecurityDefinitions(Arrays.asList(swaggerSecurityDefinitionImpl));
+		
+		ByteArrayOutputStream output = new ByteArrayOutputStream();
+		SwaggerFormatter swaggerFormatter = new SwaggerFormatter();
+		swaggerFormatter.setExpandInline(true);
+		swaggerFormatter.setAllowDefinedTypeReferences(true);
+		swaggerFormatter.format(definition, output);
+		return new String(output.toByteArray(), "UTF-8");
+	}
 	
-	private List<SwaggerPath> analyzeAllPaths(ModifiableTypeRegistry registry, WebFragmentProvider provider, String path, boolean include) {
+	private List<SwaggerPath> analyzeAllPaths(ModifiableTypeRegistry registry, WebFragmentProvider provider, String path, boolean include, WebApplication application, Token token) {
 		List<SwaggerPath> paths = new ArrayList<SwaggerPath>();
 		if (provider.getWebFragments() == null || provider.getWebFragments().isEmpty()) {
 			return paths;
@@ -212,18 +223,20 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 			if (provider instanceof Artifact) {
 				documentation = DocumentationManager.getDocumentation(getRepository(), ((Artifact) provider).getId());
 			}
-			paths.addAll(analyzePaths(provider instanceof Artifact ? ((Artifact) provider).getId() : null, documentation, registry, provider.getWebFragments(), path));
+			paths.addAll(analyzePaths(provider instanceof Artifact ? ((Artifact) provider).getId() : null, documentation, registry, provider.getWebFragments(), path, application, token));
 			if (provider instanceof RESTFragmentProvider && ((RESTFragmentProvider) provider).getFragments() != null) {
 				for (RESTFragment child : ((RESTFragmentProvider) provider).getFragments()) {
-					mapRESTFragment(
-						provider instanceof Artifact ? ((Artifact) provider).getId() : null, 
-						documentation, 
-						registry, 
-						path, 
-						paths, 
-						child,
-						child.getDocumentation()
-					);
+					if (isAllowed(application, token, child.getAllowedRoles(), child.getPermissionAction())) {
+						mapRESTFragment(
+							provider instanceof Artifact ? ((Artifact) provider).getId() : null, 
+							documentation, 
+							registry, 
+							path, 
+							paths, 
+							child,
+							child.getDocumentation()
+						);
+					}
 				}
 			}
 		}
@@ -237,14 +250,40 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 					childPath = "/" + childPath;
 				}
 				// if this one is not included yet, the path is not yet relative to whatever we are mounting
-				paths.addAll(analyzeAllPaths(registry, (WebFragmentProvider) fragment, !include || childPath == null || childPath.equals("/") ? path : path + childPath, include));
+				paths.addAll(analyzeAllPaths(registry, (WebFragmentProvider) fragment, !include || childPath == null || childPath.equals("/") ? path : path + childPath, include, application, token));
 			}
 		}
 		return paths;
 	}
 	
+	private boolean isAllowed(WebApplication application, Token token, List<String> roles, String permissionAction) {
+		try {
+			if (getConfig().isLimitToUser()) {
+				if (roles != null && application.getRoleHandler() != null) {
+					boolean hasRole = false;
+					for (String role : roles) {
+						hasRole |= application.getRoleHandler().hasRole(token, role);
+						if (hasRole) {
+							break;
+						}
+					}
+					if (!hasRole) {
+						return false;
+					}
+				}
+				if (permissionAction != null && application.getPotentialPermissionHandler() != null) {
+					return application.getPotentialPermissionHandler().hasPotentialPermission(token, permissionAction);
+				}
+			}
+		}
+		catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+		return true;
+	}
+	
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	private List<SwaggerPath> analyzePaths(String parentId, Documented parentDocumentation, ModifiableTypeRegistry registry, List<WebFragment> fragments, String path) {
+	private List<SwaggerPath> analyzePaths(String parentId, Documented parentDocumentation, ModifiableTypeRegistry registry, List<WebFragment> fragments, String path, WebApplication application, Token token) {
 		List<SwaggerPath> paths = new ArrayList<SwaggerPath>();
 		for (WebFragment fragment : fragments) {
 			if (fragment instanceof RESTService) {
@@ -253,7 +292,23 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 				for (Artifact child : rest.getContainedArtifacts()) {
 					if (child instanceof RESTInterfaceArtifact) {
 						RESTInterfaceArtifact iface = (RESTInterfaceArtifact) child;
+						
+						if (!isAllowed(application, token, iface.getConfig().getRoles(), iface.getConfig().getPermissionAction())) {
+							continue;
+						}
+						
 						String fullPath = getRelativePath(path, iface.getConfig().getPath());
+						
+						// if we have path parameters and they need to be decamelified, update them in the path as well
+						if (iface.getConfig().getNamingConvention() != null) {
+							for (Element<?> element : iface.getPath()) {
+								String formatted = iface.getConfig().getNamingConvention().apply(element.getName());
+								if (!formatted.equals(element.getName())) {
+									fullPath = fullPath.replaceAll("(\\{[\\s]*)" + element.getName() + "\\b", "$1" + formatted);
+								}
+							}
+						}
+						
 						SwaggerPathImpl swaggerPath = getSwaggerPath(paths, fullPath);
 						
 						if (swaggerPath == null) {
@@ -268,7 +323,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							method.setSummary(documentation.getTitle());
 							method.setDescription(documentation.getDescription());
 						}
-						if (parentDocumentation != null && method.getTags() == null) {
+						if (parentDocumentation != null && method.getTags() == null && parentDocumentation.getTags() != null) {
 							method.setTags(new ArrayList<String>(parentDocumentation.getTags()));
 						}
 						if (method.getTags() == null) {
@@ -301,39 +356,30 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							method.setSecurity(Arrays.asList(security));
 						}
 						List<SwaggerParameter> parameters = new ArrayList<SwaggerParameter>();
-						String headerParams = iface.getConfig().getHeaderParameters();
-						if (headerParams != null) {
-							for (String headerParam : headerParams.split("[\\s]*,[\\s]*")) {
-								SwaggerParameterImpl parameter = new SwaggerParameterImpl();
-								parameter.setName(headerParam);
-								parameter.setLocation(ParameterLocation.HEADER);
-								parameter.setElement(new SimpleElementImpl<String>(headerParam, SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), null,
-									new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
-								parameters.add(parameter);
-							}
+						for (Element<?> element : iface.getHeader()) {
+							SwaggerParameterImpl parameter = new SwaggerParameterImpl();
+							String name = RESTUtils.fieldToHeader(element.getName());
+							parameter.setName(iface.getConfig().getNamingConvention() != null ? iface.getConfig().getNamingConvention().apply(name) : name);
+							parameter.setLocation(ParameterLocation.HEADER);
+							parameter.setElement(element);
+							parameters.add(parameter);
 						}
-						String queryParams = iface.getConfig().getQueryParameters();
-						if (queryParams != null) {
-							for (String queryParam : queryParams.split("[\\s]*,[\\s]*")) {
-								SwaggerParameterImpl parameter = new SwaggerParameterImpl();
-								parameter.setName(queryParam);
-								parameter.setLocation(ParameterLocation.QUERY);
+						for (Element<?> element : iface.getQuery()) {
+							SwaggerParameterImpl parameter = new SwaggerParameterImpl();
+							parameter.setName(iface.getConfig().getNamingConvention() != null ? iface.getConfig().getNamingConvention().apply(element.getName()) : element.getName());
+							parameter.setLocation(ParameterLocation.QUERY);
+							if (element.getType().isList(element.getProperties())) {
 								parameter.setCollectionFormat(CollectionFormat.MULTI);
-								parameter.setElement(new SimpleElementImpl<String>(queryParam, SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), null,
-									new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0), new ValueImpl<Integer>(MaxOccursProperty.getInstance(), 0)));
-								parameters.add(parameter);
 							}
+							parameter.setElement(element);
+							parameters.add(parameter);
 						}
-						if (iface.getConfig().getPath() != null) {
-							Pattern pattern = Pattern.compile("\\{([^}]+)\\}");
-							Matcher matcher = pattern.matcher(iface.getConfig().getPath());
-							while (matcher.find()) {
-								SwaggerParameterImpl parameter = new SwaggerParameterImpl();
-								parameter.setName(matcher.group(1).replaceAll("[\\s]*:.*$", ""));
-								parameter.setLocation(ParameterLocation.PATH);
-								parameter.setElement(new SimpleElementImpl<String>(parameter.getName(), SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), null));
-								parameters.add(parameter);
-							}
+						for (Element<?> element : iface.getPath()) {
+							SwaggerParameterImpl parameter = new SwaggerParameterImpl();
+							parameter.setName(iface.getConfig().getNamingConvention() != null ? iface.getConfig().getNamingConvention().apply(element.getName()) : element.getName());
+							parameter.setLocation(ParameterLocation.PATH);
+							parameter.setElement(element);
+							parameters.add(parameter);
 						}
 						List<SwaggerResponse> responses = new ArrayList<SwaggerResponse>();
 
@@ -466,12 +512,16 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 				}
 			}
 			else if (fragment instanceof RESTFragment) {
-				mapRESTFragment(parentId, parentDocumentation, registry, path, paths, (RESTFragment) fragment, null);
+				if (isAllowed(application, token, ((RESTFragment) fragment).getAllowedRoles(), ((RESTFragment) fragment).getPermissionAction())) {
+					mapRESTFragment(parentId, parentDocumentation, registry, path, paths, (RESTFragment) fragment, null);
+				}
 			}
 			else if (fragment instanceof RESTFragmentProvider) {
 				Documented documentation = DocumentationManager.getDocumentation(getRepository(), fragment.getId());
 				for (RESTFragment child : ((RESTFragmentProvider) fragment).getFragments()) {
-					mapRESTFragment(parentId, documentation == null ? parentDocumentation : documentation, registry, path, paths, child, child.getDocumentation());
+					if (isAllowed(application, token, child.getAllowedRoles(), child.getPermissionAction())) {
+						mapRESTFragment(parentId, documentation == null ? parentDocumentation : documentation, registry, path, paths, child, child.getDocumentation());
+					}
 				}
 			}
 		}
