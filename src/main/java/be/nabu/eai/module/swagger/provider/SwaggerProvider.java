@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import be.nabu.eai.module.http.server.HTTPServerArtifact;
 import be.nabu.eai.module.http.server.RepositoryExceptionFormatter.StructuredResponse;
 import be.nabu.eai.module.rest.RESTUtils;
 import be.nabu.eai.module.rest.WebMethod;
@@ -168,7 +169,8 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		definition.setBasePath(getConfig().getBasePath() == null ? "/" : getConfig().getBasePath());
 		definition.setConsumes(Arrays.asList("application/json", "application/xml"));
 		definition.setProduces(definition.getConsumes());
-		Integer port = artifact.getConfig().getVirtualHost().getConfig().getServer().getConfig().getPort();
+		HTTPServerArtifact server = artifact.getConfig().getVirtualHost().getConfig().getServer();
+		Integer port = server.getConfig().isProxied() ? server.getConfig().getProxyPort() : server.getConfig().getPort();
 		
 		if (getConfig().getHost() != null) {
 			definition.setHost(getConfig().getHost());
@@ -178,8 +180,8 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 			definition.setHost(artifact.getConfig().getVirtualHost().getConfig().getHost() + (port == null ? "" : ":" + port));
 		}
 		
-		boolean isSecure = artifact.getConfig().getVirtualHost().getConfig().getKeyAlias() != null
-			&& artifact.getConfig().getVirtualHost().getConfig().getServer().getConfig().getKeystore() != null;
+		boolean isSecure = server.getConfig().isProxied() ? server.getConfig().isProxySecure() : 
+			artifact.getConfig().getVirtualHost().getConfig().getKeyAlias() != null && server.getConfig().getKeystore() != null;
 		
 		// if we explicitly configure a scheme, use that (could be due to ssl offloading or the like)
 		if (getConfig().getScheme() != null) {
