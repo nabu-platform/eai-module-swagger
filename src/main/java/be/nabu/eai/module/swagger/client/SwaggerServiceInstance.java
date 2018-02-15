@@ -174,6 +174,12 @@ public class SwaggerServiceInstance implements ServiceInstance {
 				path = "/";
 			}
 			List<Header> additionalHeaders = new ArrayList<Header>();
+			
+			// add custom headers if necessary
+			if (input != null && input.get("headers") != null) {
+				additionalHeaders.addAll((List<Header>) input.get("headers"));
+			}
+			
 			Map<String, List<String>> queryParameters = new HashMap<String, List<String>>();
 
 			ModifiablePart part;
@@ -330,6 +336,11 @@ public class SwaggerServiceInstance implements ServiceInstance {
 			}
 			part.setHeader(new MimeHeader("Host", host));
 			
+			// github requires a user agent for its api access...
+			if (service.getClient().getConfig().getUserAgent() != null) {
+				part.setHeader(new MimeHeader("User-Agent", service.getClient().getConfig().getUserAgent()));
+			}
+			
 			final String oauth2Token = input == null ? null : (String) input.get("authentication/oauth2Token");
 			if (oauth2Token != null) {
 				part.setHeader(new MimeHeader("Authorization", "Bearer " + oauth2Token));
@@ -430,6 +441,10 @@ public class SwaggerServiceInstance implements ServiceInstance {
 						}
 					}
 				}
+			}
+			// if you explicitly passed in authentication, we use that
+			else if (input != null && input.get("authentication/username") != null) {
+				request.getContent().setHeader(new MimeHeader(HTTPUtils.SERVER_AUTHENTICATE_RESPONSE, new BasicAuthentication().authenticate(principal, "basic")));
 			}
 
 			HTTPClient client = Services.getTransactionable(executionContext, input == null ? null : (String) input.get("transactionId"), service.getClient().getConfig().getHttpClient()).getClient();

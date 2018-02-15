@@ -20,7 +20,7 @@ public class SwaggerClientConfiguration {
 	
 	private HTTPClientArtifact httpClient;
 	private Charset charset;
-	private String username, password;
+	private String username, password, userAgent;
 	private Boolean supportGzip, sanitizeOutput;
 	private List<SecurityType> security;
 	private String host, basePath, scheme;
@@ -117,6 +117,13 @@ public class SwaggerClientConfiguration {
 	}
 	public void setLenient(boolean lenient) {
 		this.lenient = lenient;
+	}
+	
+	public String getUserAgent() {
+		return userAgent;
+	}
+	public void setUserAgent(String userAgent) {
+		this.userAgent = userAgent;
 	}
 
 	public static class SchemeEnumerator implements Enumerator {

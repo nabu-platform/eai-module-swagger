@@ -20,9 +20,12 @@ import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.base.ComplexElementImpl;
 import be.nabu.libs.types.base.SimpleElementImpl;
 import be.nabu.libs.types.base.ValueImpl;
+import be.nabu.libs.types.java.BeanResolver;
 import be.nabu.libs.types.properties.AliasProperty;
+import be.nabu.libs.types.properties.MaxOccursProperty;
 import be.nabu.libs.types.properties.MinOccursProperty;
 import be.nabu.libs.types.structure.Structure;
+import be.nabu.utils.mime.api.Header;
 
 public class SwaggerProxyInterface implements DefinedServiceInterface {
 
@@ -83,6 +86,8 @@ public class SwaggerProxyInterface implements DefinedServiceInterface {
 			input.add(new ComplexElementImpl("authentication", authentication, input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
 		}
 		
+		input.add(new ComplexElementImpl("headers", (ComplexType) BeanResolver.getInstance().resolve(Header.class), input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0), new ValueImpl<Integer>(MaxOccursProperty.getInstance(), 0)));
+		
 		return input;
 	}
 
@@ -103,6 +108,7 @@ public class SwaggerProxyInterface implements DefinedServiceInterface {
 			break;
 			case oauth2:
 				authentication.add(new SimpleElementImpl<String>("oauth2Token", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), authentication));
+			break;
 		}
 	}
 	
