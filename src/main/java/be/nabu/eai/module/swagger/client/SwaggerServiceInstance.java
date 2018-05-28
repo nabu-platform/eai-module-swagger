@@ -40,6 +40,7 @@ import be.nabu.libs.types.base.CollectionFormat;
 import be.nabu.libs.swagger.api.SwaggerResponse;
 import be.nabu.libs.swagger.api.SwaggerSecurityDefinition;
 import be.nabu.libs.swagger.api.SwaggerSecuritySetting;
+import be.nabu.libs.swagger.api.SwaggerParameter.ParameterLocation;
 import be.nabu.libs.types.ComplexContentWrapperFactory;
 import be.nabu.libs.types.api.ComplexContent;
 import be.nabu.libs.types.api.ComplexType;
@@ -181,6 +182,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 			}
 			
 			Map<String, List<String>> queryParameters = new HashMap<String, List<String>>();
+			Map<String, List<String>> formParameters = new HashMap<String, List<String>>();
 
 			ModifiablePart part;
 			Object parameters = input == null ? null : input.get("parameters");
@@ -199,6 +201,9 @@ public class SwaggerServiceInstance implements ServiceInstance {
 						if (value != null) {
 							switch (parameter.getLocation()) {
 								case BODY:
+									if (!formParameters.isEmpty()) {
+										throw new ServiceException("SWAGGER-1", "Input parameters of type 'body' and 'formData' can not co-exist in the same operation");
+									}
 									if (value instanceof InputStream) {
 										try {
 											content = IOUtils.toBytes(IOUtils.wrap((InputStream) value));
@@ -263,6 +268,10 @@ public class SwaggerServiceInstance implements ServiceInstance {
 									path = path.replaceAll("\\{[\\s]*" + Pattern.quote(parameter.getName()) + "\\b[^}]*\\}",
 										URIUtils.encodeURIComponent(Matcher.quoteReplacement(value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class)), false));
 								break;
+								case FORMDATA:
+									if (content != null) {
+										throw new ServiceException("SWAGGER-1", "Input parameters of type 'body' and 'formData' can not co-exist in the same operation");
+									}
 								case QUERY:
 									if (value instanceof Iterable) {
 										StringBuilder builder = new StringBuilder();
@@ -279,7 +288,12 @@ public class SwaggerServiceInstance implements ServiceInstance {
 											if (values.isEmpty()) {
 												continue;
 											}
-											queryParameters.put(parameter.getName(), values);
+											if (parameter.getLocation() == ParameterLocation.FORMDATA) {
+												formParameters.put(parameter.getName(), values);
+											}
+											else {
+												queryParameters.put(parameter.getName(), values);
+											}
 										}
 										else {
 											for (Object child : (Iterable<?>) value) {
@@ -295,19 +309,47 @@ public class SwaggerServiceInstance implements ServiceInstance {
 											if (first) {
 												continue;
 											}
-											queryParameters.put(parameter.getName(), Arrays.asList(builder.toString()));
+											if (parameter.getLocation() == ParameterLocation.FORMDATA) {
+												formParameters.put(parameter.getName(), Arrays.asList(builder.toString()));
+											}
+											else {
+												queryParameters.put(parameter.getName(), Arrays.asList(builder.toString()));
+											}
 										}
+									}
+									else if (parameter.getLocation() == ParameterLocation.FORMDATA) {
+										formParameters.put(parameter.getName(), Arrays.asList(value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class)));
 									}
 									else {
 										queryParameters.put(parameter.getName(), Arrays.asList(value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class)));
 									}
 								break;
-								case FORMDATA:
-									throw new ServiceException("SWAGGER-0", "Form parameters are currently not supported");
 							}
 						}
 					}
 				}
+				
+				// if we have a form and we have formData parameters, use that to build the body content
+				if (content == null && !formParameters.isEmpty()) {
+					String formContent = "";
+					boolean first = true;
+					for (String key : formParameters.keySet()) {
+						for (String value : formParameters.get(key)) {
+							if (first) {
+								first = false;
+							}
+							else {
+								formContent += "&";
+							}
+							formContent += URIUtils.encodeURIComponent(key, false) + "=" + URIUtils.encodeURIComponent(value, false);
+						}
+					}
+					if (!formContent.isEmpty()) {
+						content = formContent.getBytes(Charset.forName("UTF-8"));
+						contentType = WebResponseType.FORM_ENCODED.getMimeType();
+					}
+				}
+				
 				part = content == null ? new PlainMimeEmptyPart(null, new MimeHeader("Content-Length", "0")) : new PlainMimeContentPart(null, IOUtils.wrap(content, true), 
 					new MimeHeader("Content-Length", Integer.valueOf(content.length).toString()),
 					new MimeHeader("Content-Type", contentType)
@@ -485,6 +527,9 @@ public class SwaggerServiceInstance implements ServiceInstance {
 			
 			ComplexContent output = service.getServiceInterface().getOutputDefinition().newInstance();
 			if (response.getContent() != null) {
+				// always stream back all the headers...
+				output.set("headers", new ArrayList<Header>(Arrays.asList(response.getContent().getHeaders())));
+				
 				String responseContentType = MimeUtils.getContentType(response.getContent().getHeaders());
 				if (response.getContent() instanceof ContentPart && chosenResponse.getElement() != null) {
 					if (chosenResponse.getElement().getType() instanceof SimpleType) {

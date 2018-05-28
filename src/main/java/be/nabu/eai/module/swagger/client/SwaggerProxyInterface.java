@@ -145,6 +145,8 @@ public class SwaggerProxyInterface implements DefinedServiceInterface {
 			}
 		}
 
+		output.add(new ComplexElementImpl("headers", (ComplexType) BeanResolver.getInstance().resolve(Header.class), output, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0), new ValueImpl<Integer>(MaxOccursProperty.getInstance(), 0)));
+		
 		return output;
 	}
 	
