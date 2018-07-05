@@ -41,6 +41,7 @@ import be.nabu.libs.http.api.HTTPResponse;
 import be.nabu.libs.http.core.DefaultHTTPResponse;
 import be.nabu.libs.http.core.HTTPUtils;
 import be.nabu.libs.http.server.HTTPServerUtils;
+import be.nabu.libs.property.api.Value;
 import be.nabu.libs.resources.URIUtils;
 import be.nabu.libs.resources.api.ResourceContainer;
 import be.nabu.libs.services.api.DefinedService;
@@ -78,6 +79,7 @@ import be.nabu.libs.types.base.ComplexElementImpl;
 import be.nabu.libs.types.base.SimpleElementImpl;
 import be.nabu.libs.types.base.ValueImpl;
 import be.nabu.libs.types.java.BeanResolver;
+import be.nabu.libs.types.properties.CollectionFormatProperty;
 import be.nabu.libs.types.properties.MinOccursProperty;
 import be.nabu.libs.types.structure.Structure;
 import be.nabu.utils.io.IOUtils;
@@ -363,6 +365,10 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							String name = RESTUtils.fieldToHeader(element.getName());
 							parameter.setName(iface.getConfig().getNamingConvention() != null ? iface.getConfig().getNamingConvention().apply(name) : name);
 							parameter.setLocation(ParameterLocation.HEADER);
+							if (element.getType().isList(element.getProperties())) {
+								Value<CollectionFormat> property = element.getProperty(CollectionFormatProperty.getInstance());
+								parameter.setCollectionFormat(property == null ? CollectionFormat.MULTI : property.getValue());
+							}
 							parameter.setElement(element);
 							parameters.add(parameter);
 						}
@@ -371,7 +377,8 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							parameter.setName(iface.getConfig().getNamingConvention() != null ? iface.getConfig().getNamingConvention().apply(element.getName()) : element.getName());
 							parameter.setLocation(ParameterLocation.QUERY);
 							if (element.getType().isList(element.getProperties())) {
-								parameter.setCollectionFormat(CollectionFormat.MULTI);
+								Value<CollectionFormat> property = element.getProperty(CollectionFormatProperty.getInstance());
+								parameter.setCollectionFormat(property == null ? CollectionFormat.MULTI : property.getValue());
 							}
 							parameter.setElement(element);
 							parameters.add(parameter);
