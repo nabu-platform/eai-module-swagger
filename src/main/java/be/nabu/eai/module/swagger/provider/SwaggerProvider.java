@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import be.nabu.eai.module.http.server.HTTPServerArtifact;
 import be.nabu.eai.module.http.server.RepositoryExceptionFormatter.StructuredResponse;
@@ -163,7 +164,16 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		// title and version are mandatory
 		info.setTitle(documented == null || documented.getTitle() == null ? getId() : documented.getTitle());
 		info.setVersion(getConfig().getVersion() == null ? "1.0" : getConfig().getVersion());
-		info.setDescription(documented == null ? null : documented.getDescription());
+		String description = documented == null ? null : documented.getDescription();
+		String [] annotations = null;
+		if (description != null) {
+			String annotationBlock = description.replaceAll("(?s)^([\\s]*" + Pattern.quote("@") + ".*?)[\n]+(?!" + Pattern.quote("@") + ").*", "$1");
+			if (annotationBlock.trim().startsWith("@")) {
+				description = description.substring(annotationBlock.length()).trim();
+				annotations = annotationBlock.split("[\r\n]+");
+			}
+		}
+		info.setDescription(description);
 		info.setTermsOfService(getConfig().getTermsOfService());
 		definition.setInfo(info);
 		definition.setRegistry(new TypeRegistryImpl());
