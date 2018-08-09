@@ -42,6 +42,7 @@ import be.nabu.libs.swagger.api.SwaggerSecurityDefinition;
 import be.nabu.libs.swagger.api.SwaggerSecuritySetting;
 import be.nabu.libs.swagger.api.SwaggerParameter.ParameterLocation;
 import be.nabu.libs.types.ComplexContentWrapperFactory;
+import be.nabu.libs.types.TypeUtils;
 import be.nabu.libs.types.api.ComplexContent;
 import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.Element;
@@ -178,7 +179,12 @@ public class SwaggerServiceInstance implements ServiceInstance {
 			
 			// add custom headers if necessary
 			if (input != null && input.get("headers") != null) {
-				additionalHeaders.addAll((List<Header>) input.get("headers"));
+				for (Object object : (List) input.get("headers")) {
+					if (object instanceof ComplexContent) {
+						object = TypeUtils.getAsBean((ComplexContent) object, Header.class);
+					}
+					additionalHeaders.add((Header) object);
+				}
 			}
 			
 			Map<String, List<String>> queryParameters = new HashMap<String, List<String>>();
