@@ -7,6 +7,7 @@ import java.util.List;
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
+import be.nabu.eai.api.Advanced;
 import be.nabu.eai.api.Enumerator;
 import be.nabu.eai.api.EnvironmentSpecific;
 import be.nabu.eai.api.ValueEnumerator;
@@ -24,7 +25,7 @@ public class SwaggerClientConfiguration {
 	private Boolean supportGzip, sanitizeOutput;
 	private List<SecurityType> security;
 	private String host, basePath, scheme;
-	private boolean throwException, lenient = true;
+	private boolean throwException, lenient = true, showInterfaces;
 	
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
 	public HTTPClientArtifact getHttpClient() {
@@ -124,6 +125,14 @@ public class SwaggerClientConfiguration {
 	}
 	public void setUserAgent(String userAgent) {
 		this.userAgent = userAgent;
+	}
+
+	@Advanced
+	public boolean isShowInterfaces() {
+		return showInterfaces;
+	}
+	public void setShowInterfaces(boolean showInterfaces) {
+		this.showInterfaces = showInterfaces;
 	}
 
 	public static class SchemeEnumerator implements Enumerator {

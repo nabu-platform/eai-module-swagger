@@ -162,8 +162,10 @@ public class SwaggerServiceInstance implements ServiceInstance {
 					basePath = service.getClient().getDefinition().getBasePath();
 				}
 			}
+			// we assume the root path
 			if (basePath == null) {
-				throw new ServiceException("SWAGGER-CLIENT-2", "No basePath configured for: " + service.getId());
+				basePath = "/";
+//				throw new ServiceException("SWAGGER-CLIENT-2", "No basePath configured for: " + service.getId());
 			}
 
 			Charset charset = service.getClient().getConfig().getCharset();
