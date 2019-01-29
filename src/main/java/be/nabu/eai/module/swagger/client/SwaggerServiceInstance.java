@@ -587,7 +587,8 @@ public class SwaggerServiceInstance implements ServiceInstance {
 						if ("application/x-www-form-urlencoded".equalsIgnoreCase(responseContentType)) {
 							binding = new FormBinding(unmarshalType, charset);
 						}
-						else if ("application/json".equalsIgnoreCase(responseContentType) || "application/javascript".equalsIgnoreCase(responseContentType) || "application/x-javascript".equalsIgnoreCase(responseContentType)) {
+						else if ("application/json".equalsIgnoreCase(responseContentType) || "application/javascript".equalsIgnoreCase(responseContentType) || "application/x-javascript".equalsIgnoreCase(responseContentType)
+								|| "application/problem+json".equalsIgnoreCase(responseContentType)) {
 							JSONBinding jsonBinding = new JSONBinding(unmarshalType, charset);
 //							jsonBinding.setIgnoreRootIfArrayWrapper(ValueUtils.contains(MaxOccursProperty.getInstance(), chosenResponse.getElement().getType().getProperties()));
 							jsonBinding.setIgnoreRootIfArrayWrapper(true);
@@ -603,7 +604,8 @@ public class SwaggerServiceInstance implements ServiceInstance {
 							jsonBinding.setComplexTypeGenerator(new StructureGenerator());
 							binding = jsonBinding;
 						}
-						else if ("application/xml".equalsIgnoreCase(responseContentType) || "text/xml".equalsIgnoreCase(responseContentType)) {
+						else if ("application/xml".equalsIgnoreCase(responseContentType) || "text/xml".equalsIgnoreCase(responseContentType)
+								|| "application/problem+xml".equalsIgnoreCase(responseContentType)) {
 							XMLBinding xmlBinding = new XMLBinding(unmarshalType, charset);
 							// lenient by default
 							xmlBinding.setIgnoreUndefined(true);

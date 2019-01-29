@@ -3,6 +3,7 @@ package be.nabu.eai.module.swagger.client;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TimeZone;
 
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
@@ -14,6 +15,7 @@ import be.nabu.eai.api.ValueEnumerator;
 import be.nabu.eai.module.http.client.HTTPClientArtifact;
 import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.eai.repository.jaxb.CharsetAdapter;
+import be.nabu.eai.repository.jaxb.TimeZoneAdapter;
 import be.nabu.libs.swagger.api.SwaggerSecurityDefinition.SecurityType;
 
 @XmlRootElement(name = "swaggerClient")
@@ -26,6 +28,7 @@ public class SwaggerClientConfiguration {
 	private List<SecurityType> security;
 	private String host, basePath, scheme;
 	private boolean throwException, lenient = true, showInterfaces;
+	private TimeZone timezone;
 	
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
 	public HTTPClientArtifact getHttpClient() {
@@ -146,4 +149,13 @@ public class SwaggerClientConfiguration {
 		}
 		
 	}
+
+	@XmlJavaTypeAdapter(value = TimeZoneAdapter.class)
+	public TimeZone getTimezone() {
+		return timezone;
+	}
+	public void setTimezone(TimeZone timezone) {
+		this.timezone = timezone;
+	}
+	
 }

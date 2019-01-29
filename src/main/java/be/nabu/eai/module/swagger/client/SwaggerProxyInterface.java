@@ -79,7 +79,7 @@ public class SwaggerProxyInterface implements DefinedServiceInterface {
 			for (SwaggerSecuritySetting setting : method.getSecurity()) {
 				for (SwaggerSecurityDefinition securityDefinition : definition.getSecurityDefinitions()) {
 					if (securityDefinition.getName().equals(setting.getName())) {
-						addAuthentication(authentication, setting.getName(), securityDefinition.getLocation(), securityDefinition.getType());
+						addAuthentication(authentication, securityDefinition.getFieldName(), securityDefinition.getLocation(), securityDefinition.getType());
 					}
 				}
 			}

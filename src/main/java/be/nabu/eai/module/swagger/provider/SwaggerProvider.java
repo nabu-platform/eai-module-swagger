@@ -440,9 +440,22 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							}
 							c400.setElement(new ComplexElementImpl("body", complexType, null));
 							responses.add(c400);
+
+							// you can use an unsupported media type
+							SwaggerResponseImpl c415 = new SwaggerResponseImpl();
+							c415.setCode(415);
+							c415.setDescription(HTTPCodes.getMessage(415));
+							responses.add(c415);
 						}
 						method.setParameters(parameters);
 						
+						// if there is a rate limiter
+						if (application.getConfig().getRateLimiter() != null) {
+							SwaggerResponseImpl c429 = new SwaggerResponseImpl();
+							c429.setCode(429);
+							c429.setDescription(HTTPCodes.getMessage(429));
+							responses.add(c429);
+						}
 						
 						// if we have security, we can send back a 401 and 403
 						if (method.getSecurity() != null) {
@@ -457,8 +470,17 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							responses.add(c403);
 						}
 						
+						for (Integer code : rest.getAdditionalCodes()) {
+							if (!Arrays.asList(400, 401, 403, 429, 415, 412).contains(code)) {
+								SwaggerResponseImpl custom = new SwaggerResponseImpl();
+								custom.setCode(code);
+								custom.setDescription(HTTPCodes.getMessage(code));
+								responses.add(custom);
+							}
+						}
+						
 						// there is some content
-						if ((iface.getConfig().getOutputAsStream() != null && iface.getConfig().getOutputAsStream()) || iface.getConfig().getOutput() != null) {
+						if ((iface.getConfig().getOutputAsStream() != null && iface.getConfig().getOutputAsStream()) || iface.getConfig().getOutput() != null || iface.getConfig().getMethod() == WebMethod.GET) {
 							SwaggerResponseImpl c200 = new SwaggerResponseImpl();
 							c200.setCode(200);
 							c200.setDescription("The request was successful");
@@ -491,18 +513,28 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							responses.add(c200);
 						}
 						
-						// every response can lead to an empty return (theoretically)
-						SwaggerResponseImpl c204 = new SwaggerResponseImpl();
-						c204.setCode(204);
-						c204.setDescription("The request was successful but no content will be returned");
-						responses.add(c204);
+						// if we have no potential response, allow a 204
+						// note that 204 for empty gets is a contested response, the spec allows it but in general most don't and simply return a 200
+						if (iface.getConfig().getMethod() != WebMethod.GET && iface.getConfig().getOutput() == null && (iface.getConfig().getOutputAsStream() == null || iface.getConfig().getOutputAsStream() == false)) {
+							// every response can lead to an empty return (theoretically)
+							SwaggerResponseImpl c204 = new SwaggerResponseImpl();
+							c204.setCode(204);
+							c204.setDescription("The request was successful but no content will be returned");
+							responses.add(c204);
+						}
 						
-						// if it is a get, we can return a 304
-						if (iface.getConfig().getMethod() == WebMethod.GET) {
+						// if it is a get and we have caching enabled, we can return a 304
+						if (iface.getConfig().getMethod() == WebMethod.GET && (iface.getConfig().isCache() || iface.getConfig().isUseServerCache())) {
 							SwaggerResponseImpl c304 = new SwaggerResponseImpl();
 							c304.setCode(304);
 							c304.setDescription("The resource has not changed since the last modified");
 							responses.add(c304);
+						}
+						else if (iface.getConfig().getMethod() != WebMethod.GET && (iface.getConfig().isCache() || iface.getConfig().isUseServerCache())) {
+							SwaggerResponseImpl c412 = new SwaggerResponseImpl();
+							c412.setCode(412);
+							c412.setDescription(HTTPCodes.getMessage(412));
+							responses.add(c412);
 						}
 						
 						// every response can lead to an empty return (theoretically)
@@ -547,6 +579,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		return paths;
 	}
 
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private void mapRESTFragment(String parentId, Documented parentDocumentation, ModifiableTypeRegistry registry, String path, List<SwaggerPath> paths, RESTFragment fragment, Documented documentation) {
 		if (documentation == null) {
 			documentation = DocumentationManager.getDocumentation(getRepository(), fragment.getId());
@@ -602,28 +635,49 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 			
 			List<SwaggerResponse> responses = new ArrayList<SwaggerResponse>();
 			
-			if (fragment.getOutput() != null) {
+			// if there is an output or the method is a get, we return a 200 for success
+			if (fragment.getOutput() != null || "GET".equalsIgnoreCase(fragment.getMethod())) {
 				SwaggerResponseImpl c200 = new SwaggerResponseImpl();
 				c200.setCode(200);
 				c200.setDescription("The request was successful");
-				String id = fragment.getOutput() instanceof DefinedType ? ((DefinedType) fragment.getOutput()).getId() : fragment.getId() + "Output";
-				ComplexType complexType = registry.getComplexType(getId(), id);
-				if (complexType == null) {
-					complexType = new ComplexTypeWrapper((ComplexType) fragment.getOutput(), getId(), id);
-					registry.register(complexType);
+				if (fragment.getOutput() != null) {
+					String id = fragment.getOutput() instanceof DefinedType ? ((DefinedType) fragment.getOutput()).getId() : fragment.getId() + "Output";
+					if (fragment.getOutput() instanceof ComplexType) {
+						ComplexType complexType = registry.getComplexType(getId(), id);
+						if (complexType == null) {
+							complexType = new ComplexTypeWrapper((ComplexType) fragment.getOutput(), getId(), id);
+							registry.register(complexType);
+						}
+						c200.setElement(new ComplexElementImpl("body", complexType, (ComplexType) null));
+					}
+					else {
+						String simpleType = ((SimpleType<?>) fragment.getOutput()).getName();
+						if ("base64Binary".equalsIgnoreCase(simpleType)) {
+							SimpleType<?> binaryType = registry.getSimpleType(getId(), "binary");
+							if (binaryType == null) {
+								binaryType = new SimpleTypeExtension(getId() + ".binary", getId(), "binary", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(InputStream.class));
+								registry.register(binaryType);
+							}
+							method.setProduces(Arrays.asList("application/octet-stream"));
+							c200.setElement(new SimpleElementImpl("body", binaryType, null));
+						}
+						else {
+							c200.setElement(new SimpleElementImpl("body", (SimpleType<?>) fragment.getOutput(), (ComplexType) null));
+						}
+					}
 				}
-				c200.setElement(new ComplexElementImpl("body", complexType, (ComplexType) null));
 				responses.add(c200);
 			}
-				
-			// every response can lead to an empty return (theoretically)
-			SwaggerResponseImpl c204 = new SwaggerResponseImpl();
-			c204.setCode(204);
-			c204.setDescription("The request was successful but no content will be returned");
-			responses.add(c204);
+			else {
+				// every response can lead to an empty return (theoretically)
+				SwaggerResponseImpl c204 = new SwaggerResponseImpl();
+				c204.setCode(204);
+				c204.setDescription("The request was successful but no content will be returned");
+				responses.add(c204);
+			}
 			
 			// if it is a get, we can return a 304
-			if ("GET".equalsIgnoreCase(fragment.getMethod())) {
+			if ("GET".equalsIgnoreCase(fragment.getMethod()) && fragment.isCacheable()) {
 				SwaggerResponseImpl c304 = new SwaggerResponseImpl();
 				c304.setCode(304);
 				c304.setDescription("The resource has not changed since the last modified");
