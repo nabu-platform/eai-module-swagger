@@ -192,8 +192,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 			definition.setHost(artifact.getConfig().getVirtualHost().getConfig().getHost() + (port == null ? "" : ":" + port));
 		}
 		
-		boolean isSecure = server.getConfig().isProxied() ? server.getConfig().isProxySecure() : 
-			artifact.getConfig().getVirtualHost().getConfig().getKeyAlias() != null && server.getConfig().getKeystore() != null;
+		boolean isSecure = server.isSecure();
 		
 		// if we explicitly configure a scheme, use that (could be due to ssl offloading or the like)
 		if (getConfig().getScheme() != null) {
@@ -564,7 +563,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 			}
 			else if (fragment instanceof RESTFragment) {
 				if (isAllowed(application, token, ((RESTFragment) fragment).getAllowedRoles(), ((RESTFragment) fragment).getPermissionAction())) {
-					mapRESTFragment(parentId, parentDocumentation, registry, path, paths, (RESTFragment) fragment, null);
+					mapRESTFragment(parentId, parentDocumentation, registry, path, paths, (RESTFragment) fragment, ((RESTFragment) fragment).getDocumentation());
 				}
 			}
 			else if (fragment instanceof RESTFragmentProvider) {

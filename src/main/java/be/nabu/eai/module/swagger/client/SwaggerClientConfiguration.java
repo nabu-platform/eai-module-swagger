@@ -9,6 +9,7 @@ import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import be.nabu.eai.api.Advanced;
+import be.nabu.eai.api.Comment;
 import be.nabu.eai.api.Enumerator;
 import be.nabu.eai.api.EnvironmentSpecific;
 import be.nabu.eai.api.ValueEnumerator;
@@ -25,6 +26,7 @@ public class SwaggerClientConfiguration {
 	private Charset charset;
 	private String username, password, userAgent;
 	private Boolean supportGzip, sanitizeOutput;
+	private boolean allowDomain;
 	private List<SecurityType> security;
 	private String host, basePath, scheme;
 	private boolean throwException, lenient = true, showInterfaces;
@@ -157,5 +159,15 @@ public class SwaggerClientConfiguration {
 	public void setTimezone(TimeZone timezone) {
 		this.timezone = timezone;
 	}
+	
+	@Advanced
+	@Comment(title="When using NTLM rather then basic authentication, we can provide a domain in the username, enable this to use NTLM-style domain & user")
+	public boolean isAllowDomain() {
+		return allowDomain;
+	}
+	public void setAllowDomain(boolean allowDomain) {
+		this.allowDomain = allowDomain;
+	}
+
 	
 }

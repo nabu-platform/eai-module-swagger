@@ -413,7 +413,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 				if (index < 0) {
 					index = username.indexOf('\\');
 				}
-				if (index < 0) {
+				if (index < 0 || !service.getClient().getConfig().isAllowDomain()) {
 					principal = new BasicPrincipal() {
 						private static final long serialVersionUID = 1L;
 						@Override
