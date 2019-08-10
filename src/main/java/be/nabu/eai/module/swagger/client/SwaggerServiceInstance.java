@@ -473,7 +473,9 @@ public class SwaggerServiceInstance implements ServiceInstance {
 				part
 			);
 			
-			if (service.getMethod().getSecurity() != null && service.getClient().getDefinition().getSecurityDefinitions() != null && principal != null) {
+			if (service.getMethod().getSecurity() != null && !service.getMethod().getSecurity().isEmpty() 
+					&& service.getClient().getDefinition().getSecurityDefinitions() != null && !service.getClient().getDefinition().getSecurityDefinitions().isEmpty() 
+					&& principal != null) {
 				security: for (SwaggerSecuritySetting setting : service.getMethod().getSecurity()) {
 					for (SwaggerSecurityDefinition definition : service.getClient().getDefinition().getSecurityDefinitions()) {
 						if (definition.getName().equals(setting.getName())) {
