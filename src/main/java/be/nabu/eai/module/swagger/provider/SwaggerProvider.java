@@ -237,18 +237,21 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 				documentation = DocumentationManager.getDocumentation(getRepository(), ((Artifact) provider).getId());
 			}
 			paths.addAll(analyzePaths(provider instanceof Artifact ? ((Artifact) provider).getId() : null, documentation, registry, provider.getWebFragments(), path, application, token));
-			if (provider instanceof RESTFragmentProvider && ((RESTFragmentProvider) provider).getFragments() != null) {
-				for (RESTFragment child : ((RESTFragmentProvider) provider).getFragments()) {
-					if (isAllowed(application, token, child.getAllowedRoles(), child.getPermissionAction())) {
-						mapRESTFragment(
-							provider instanceof Artifact ? ((Artifact) provider).getId() : null, 
-							documentation, 
-							registry, 
-							path, 
-							paths, 
-							child,
-							child.getDocumentation()
-						);
+			if (provider instanceof RESTFragmentProvider) {
+				List<RESTFragment> fragments = ((RESTFragmentProvider) provider).getFragments(getConfig().isLimitToUser(), token);
+				if (fragments != null) {
+					for (RESTFragment child : fragments) {
+						if (isAllowed(application, token, child.getAllowedRoles(), child.getPermissionAction())) {
+							mapRESTFragment(
+								provider instanceof Artifact ? ((Artifact) provider).getId() : null, 
+								documentation, 
+								registry, 
+								path, 
+								paths, 
+								child,
+								child.getDocumentation()
+							);
+						}
 					}
 				}
 			}
@@ -568,9 +571,12 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 			}
 			else if (fragment instanceof RESTFragmentProvider) {
 				Documented documentation = DocumentationManager.getDocumentation(getRepository(), fragment.getId());
-				for (RESTFragment child : ((RESTFragmentProvider) fragment).getFragments()) {
-					if (isAllowed(application, token, child.getAllowedRoles(), child.getPermissionAction())) {
-						mapRESTFragment(parentId, documentation == null ? parentDocumentation : documentation, registry, path, paths, child, child.getDocumentation());
+				List<RESTFragment> fragments2 = ((RESTFragmentProvider) fragment).getFragments(getConfig().isLimitToUser(), token);
+				if (fragments2 != null) {
+					for (RESTFragment child : fragments2) {
+						if (isAllowed(application, token, child.getAllowedRoles(), child.getPermissionAction())) {
+							mapRESTFragment(parentId, documentation == null ? parentDocumentation : documentation, registry, path, paths, child, child.getDocumentation());
+						}
 					}
 				}
 			}

@@ -17,6 +17,7 @@ public class SwaggerProviderConfiguration {
 	private Scheme scheme;
 	private boolean includeAll;
 	private List<String> documentedRoles, allowedRoles;
+	// if we set limit to user, we automatically set it to variable
 	private boolean limitToUser;
 
 	@Advanced
