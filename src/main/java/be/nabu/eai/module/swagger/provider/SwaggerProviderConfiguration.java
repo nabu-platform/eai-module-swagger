@@ -4,13 +4,16 @@ import java.util.List;
 
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlType;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import be.nabu.eai.api.Advanced;
 import be.nabu.eai.api.Comment;
 import be.nabu.eai.api.LargeText;
+import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
+import be.nabu.libs.types.api.DefinedType;
 
 @XmlRootElement(name = "swaggerProvider")
-@XmlType(propOrder = { "version", "basePath", "termsOfService", "path", "host", "scheme", "includeAll", "documentedRoles", "allowedRoles", "limitToUser" })
+@XmlType(propOrder = { "version", "basePath", "termsOfService", "path", "host", "scheme", "includeAll", "documentedRoles", "allowedRoles", "limitToUser", "additionalTypes" })
 public class SwaggerProviderConfiguration {
 
 	private String path, termsOfService, version, basePath, host;
@@ -19,6 +22,9 @@ public class SwaggerProviderConfiguration {
 	private List<String> documentedRoles, allowedRoles;
 	// if we set limit to user, we automatically set it to variable
 	private boolean limitToUser;
+	
+	// we can expose additional types
+	private List<DefinedType> additionalTypes;
 
 	@Advanced
 	public String getPath() {
@@ -101,6 +107,14 @@ public class SwaggerProviderConfiguration {
 	}
 	public void setLimitToUser(boolean limitToUser) {
 		this.limitToUser = limitToUser;
+	}
+
+	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
+	public List<DefinedType> getAdditionalTypes() {
+		return additionalTypes;
+	}
+	public void setAdditionalTypes(List<DefinedType> additionalTypes) {
+		this.additionalTypes = additionalTypes;
 	}
 	
 }

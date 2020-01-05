@@ -184,6 +184,19 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		HTTPServerArtifact server = artifact.getConfig().getVirtualHost().getConfig().getServer();
 		Integer port = server.getConfig().isProxied() ? server.getConfig().getProxyPort() : server.getConfig().getPort();
 		
+		if (getConfig().getAdditionalTypes() != null) {
+			TypeRegistryImpl registry = (TypeRegistryImpl) definition.getRegistry();
+			for (DefinedType type : getConfig().getAdditionalTypes()) {
+				if (type instanceof ComplexType) {
+					ComplexType complexType = registry.getComplexType(getId(), type.getId());
+					if (complexType == null) {
+						complexType = new ComplexTypeWrapper((ComplexType) type, getId(), type.getId());
+						registry.register(complexType);
+					}
+				}
+			}
+		}
+		
 		if (getConfig().getHost() != null) {
 			definition.setHost(getConfig().getHost());
 		}

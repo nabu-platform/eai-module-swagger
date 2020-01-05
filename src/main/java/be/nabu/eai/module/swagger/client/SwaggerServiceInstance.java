@@ -540,8 +540,10 @@ public class SwaggerServiceInstance implements ServiceInstance {
 				// always stream back all the headers...
 				output.set("headers", new ArrayList<Header>(Arrays.asList(response.getContent().getHeaders())));
 				
+				Header contentLength = MimeUtils.getHeader("Content-Length", response.getContent().getHeaders());
+				boolean isEmpty = contentLength != null && contentLength.getValue() != null && contentLength.getValue().trim().equals("0");
 				String responseContentType = MimeUtils.getContentType(response.getContent().getHeaders());
-				if (response.getContent() instanceof ContentPart && chosenResponse.getElement() != null) {
+				if (response.getContent() instanceof ContentPart && chosenResponse.getElement() != null && !isEmpty) {
 					if (chosenResponse.getElement().getType() instanceof SimpleType) {
 						Object unmarshal;
 						if (((SimpleType<?>) chosenResponse.getElement().getType()).getInstanceClass().equals(InputStream.class)) {
