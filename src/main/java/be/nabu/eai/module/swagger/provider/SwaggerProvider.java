@@ -362,20 +362,35 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						method.setConsumes(Arrays.asList("application/json", "application/xml"));
 						method.setProduces(Arrays.asList("application/json", "application/xml", "text/html"));
 						method.setOperationId(rest.getId());
+						Map<String, Object> extensions = new HashMap<String, Object>();
 						
 						if (iface.getConfig().getPermissionContext() != null) {
-							Map<String, Object> extensions = new HashMap<String, Object>();
 							if (iface.getConfig().getPermissionContext().startsWith("=")) {
 								if (iface.getConfig().getPermissionContext().startsWith("=input/path/")) {
-									extensions.put("context-location", "path");
+//									extensions.put("context-location", "path");
 									extensions.put("context-name", iface.getConfig().getPermissionContext().substring("=input/path/".length()));
 								}
 								if (iface.getConfig().getPermissionContext().startsWith("=input/query/")) {
-									extensions.put("context-location", "query");
+//									extensions.put("context-location", "query");
 									extensions.put("context-name", iface.getConfig().getPermissionContext().substring("=input/query/".length()));
 								}
 							}
-							method.setExtensions(extensions);
+						}
+						try {
+							if (iface.getConfig().getTemporaryAlias() != null && application.getTemporaryAuthenticator() != null && iface.getConfig().getTemporaryAlias().startsWith("=")) {
+								// we assume syntax that points directly to the field like =input/query/field
+								// at that point we are interested in the name "field"
+								// this is rather simplistic but does the trick in most cases
+								String[] split = iface.getConfig().getTemporaryAlias().split("/");
+								extensions.put("temporary-id", split[split.length - 1]);
+								if (iface.getConfig().getTemporarySecret() != null && iface.getConfig().getTemporarySecret().startsWith("=")) {
+									split = iface.getConfig().getTemporarySecret().split("/");
+									extensions.put("temporary-secret", split[split.length - 1]);
+								}
+							}
+						}
+						catch (Exception e) {
+							throw new RuntimeException(e);
 						}
 						
 						if (iface.getConfig().getRoles() != null && !iface.getConfig().getRoles().isEmpty() && !iface.getConfig().getRoles().equals(Arrays.asList("guest"))) {
@@ -565,6 +580,10 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						}
 						c500.setElement(new ComplexElementImpl("body", complexType, null));
 						responses.add(c500);
+						
+						if (!extensions.isEmpty()) {
+							method.setExtensions(extensions);
+						}
 						
 						method.setResponses(responses);
 						
