@@ -10,6 +10,8 @@ import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import be.nabu.eai.api.Advanced;
 import be.nabu.eai.api.Comment;
+import be.nabu.eai.api.ContextualEnumerator;
+import be.nabu.eai.api.ContextualValueEnumerator;
 import be.nabu.eai.api.Enumerator;
 import be.nabu.eai.api.EnvironmentSpecific;
 import be.nabu.eai.api.ValueEnumerator;
@@ -17,6 +19,7 @@ import be.nabu.eai.module.http.client.HTTPClientArtifact;
 import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.eai.repository.jaxb.CharsetAdapter;
 import be.nabu.eai.repository.jaxb.TimeZoneAdapter;
+import be.nabu.libs.artifacts.api.Artifact;
 import be.nabu.libs.swagger.api.SwaggerSecurityDefinition.SecurityType;
 
 @XmlRootElement(name = "swaggerClient")
@@ -31,6 +34,9 @@ public class SwaggerClientConfiguration {
 	private String host, basePath, scheme;
 	private boolean throwException, lenient = true, showInterfaces;
 	private TimeZone timezone;
+	// only these operationids are exposed
+	private List<String> operationIds = new ArrayList<String>();
+	private Boolean exposeAllServices;
 	
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
 	public HTTPClientArtifact getHttpClient() {
@@ -141,7 +147,6 @@ public class SwaggerClientConfiguration {
 	}
 
 	public static class SchemeEnumerator implements Enumerator {
-
 		@Override
 		public List<?> enumerate() {
 			List<String> schemes = new ArrayList<String>();
@@ -149,7 +154,6 @@ public class SwaggerClientConfiguration {
 			schemes.add("https");
 			return schemes;
 		}
-		
 	}
 
 	@XmlJavaTypeAdapter(value = TimeZoneAdapter.class)
@@ -160,6 +164,13 @@ public class SwaggerClientConfiguration {
 		this.timezone = timezone;
 	}
 	
+	public Boolean getExposeAllServices() {
+		return exposeAllServices;
+	}
+	public void setExposeAllServices(Boolean exposeAllServices) {
+		this.exposeAllServices = exposeAllServices;
+	}
+	
 	@Advanced
 	@Comment(title="When using NTLM rather then basic authentication, we can provide a domain in the username, enable this to use NTLM-style domain & user")
 	public boolean isAllowDomain() {
@@ -168,6 +179,19 @@ public class SwaggerClientConfiguration {
 	public void setAllowDomain(boolean allowDomain) {
 		this.allowDomain = allowDomain;
 	}
-
 	
+	@ContextualValueEnumerator(enumerator = SwaggerOperationEnumerator.class)
+	public List<String> getOperationIds() {
+		return operationIds;
+	}
+	public void setOperationIds(List<String> operationIds) {
+		this.operationIds = operationIds;
+	}
+
+	public static class SwaggerOperationEnumerator implements ContextualEnumerator {
+		@Override
+		public List<?> enumerate(Artifact artifact) {
+			return null;
+		}
+	}
 }

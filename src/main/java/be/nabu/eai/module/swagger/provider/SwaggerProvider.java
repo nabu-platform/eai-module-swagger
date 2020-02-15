@@ -114,7 +114,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							String swagger;
 							// if we limit it to the user, it is not cached
 							if (getConfig().isLimitToUser()) {
-								swagger = buildSwagger(artifact, path, artifact, WebApplicationUtils.getToken(artifact, request));
+								swagger = buildSwagger(artifact, path, WebApplicationUtils.getToken(artifact, request));
 							}
 							else {
 								swagger = getSwagger(artifact, path);
@@ -146,7 +146,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 			synchronized(this) {
 				try {
 					if (!swaggers.containsKey(key) || EAIResourceRepository.isDevelopment()) {
-						swaggers.put(key, buildSwagger(artifact, path, artifact, null));
+						swaggers.put(key, buildSwagger(artifact, null));
 					}
 				}
 				catch (IOException e) {
@@ -157,7 +157,11 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		return swaggers.get(key);
 	}
 
-	private String buildSwagger(WebApplication artifact, String path, WebApplication application, Token token) throws IOException {
+	public String buildSwagger(WebApplication application, Token token) throws IOException {
+		return buildSwagger(application, application.getConfig().getPath() == null || application.getConfig().getPath().trim().isEmpty() ? application.getConfig().getPath() : "/", token);
+	}
+	
+	private String buildSwagger(WebApplication application, String path, Token token) throws IOException {
 		SwaggerDefinitionImpl definition = new SwaggerDefinitionImpl(getId());
 		SwaggerInfoImpl info = new SwaggerInfoImpl();
 		Documented documented = DocumentationManager.getDocumentation(getRepository(), getId());
@@ -181,7 +185,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		definition.setBasePath(getConfig().getBasePath() == null ? "/" : getConfig().getBasePath());
 		definition.setConsumes(Arrays.asList("application/json", "application/xml"));
 		definition.setProduces(definition.getConsumes());
-		HTTPServerArtifact server = artifact.getConfig().getVirtualHost().getConfig().getServer();
+		HTTPServerArtifact server = application.getConfig().getVirtualHost().getConfig().getServer();
 		Integer port = server.getConfig().isProxied() ? server.getConfig().getProxyPort() : server.getConfig().getPort();
 		
 		if (getConfig().getAdditionalTypes() != null) {
@@ -201,8 +205,8 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 			definition.setHost(getConfig().getHost());
 		}
 		// only set the host if you have one
-		else if (artifact.getConfig().getVirtualHost().getConfig().getHost() != null) {
-			definition.setHost(artifact.getConfig().getVirtualHost().getConfig().getHost() + (port == null ? "" : ":" + port));
+		else if (application.getConfig().getVirtualHost().getConfig().getHost() != null) {
+			definition.setHost(application.getConfig().getVirtualHost().getConfig().getHost() + (port == null ? "" : ":" + port));
 		}
 		
 		boolean isSecure = server.isSecure();
@@ -216,14 +220,14 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		}
 		definition.setVersion("2.0");
 		
-		if (artifact.getConfig().getPasswordAuthenticationService() != null) {
+		if (application.getConfig().getPasswordAuthenticationService() != null) {
 			SwaggerSecurityDefinitionImpl security = new SwaggerSecurityDefinitionImpl();
 			security.setType(SecurityType.basic);
 			security.setName("basic");
 			definition.setSecurityDefinitions(Arrays.asList(security));
 		}
 		
-		definition.setPaths(analyzeAllPaths((ModifiableTypeRegistry) definition.getRegistry(), artifact, getRelativePath(artifact.getServerPath(), path), getConfig().isIncludeAll(), application, token));
+		definition.setPaths(analyzeAllPaths((ModifiableTypeRegistry) definition.getRegistry(), application, getRelativePath(application.getServerPath(), path), getConfig().isIncludeAll(), application, token));
 		
 		SwaggerSecurityDefinitionImpl swaggerSecurityDefinitionImpl = new SwaggerSecurityDefinitionImpl();
 		swaggerSecurityDefinitionImpl.setType(SecurityType.basic);
@@ -278,8 +282,10 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 				else if (!childPath.startsWith("/")) {
 					childPath = "/" + childPath;
 				}
+				childPath = path + childPath;
+				childPath = childPath.replaceAll("[/]{2,}", "/");
 				// if this one is not included yet, the path is not yet relative to whatever we are mounting
-				paths.addAll(analyzeAllPaths(registry, (WebFragmentProvider) fragment, !include || childPath == null || childPath.equals("/") ? path : path + childPath, include, application, token));
+				paths.addAll(analyzeAllPaths(registry, (WebFragmentProvider) fragment, childPath, include, application, token));
 			}
 		}
 		return paths;

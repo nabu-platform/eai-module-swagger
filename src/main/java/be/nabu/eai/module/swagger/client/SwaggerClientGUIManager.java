@@ -6,19 +6,36 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.control.Accordion;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tab;
+import javafx.scene.control.TextField;
+import javafx.scene.control.TitledPane;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import be.nabu.eai.developer.MainController;
+import be.nabu.eai.developer.api.ArtifactGUIManager;
+import be.nabu.eai.developer.api.PortableArtifactGUIManager;
 import be.nabu.eai.developer.managers.base.BaseJAXBGUIManager;
 import be.nabu.eai.developer.managers.util.SimpleProperty;
 import be.nabu.eai.developer.managers.util.SimplePropertyUpdater;
@@ -31,6 +48,9 @@ import be.nabu.libs.resources.api.ManageableContainer;
 import be.nabu.libs.resources.api.ReadableResource;
 import be.nabu.libs.resources.api.Resource;
 import be.nabu.libs.resources.api.WritableResource;
+import be.nabu.libs.swagger.api.SwaggerMethod;
+import be.nabu.libs.swagger.api.SwaggerPath;
+import be.nabu.libs.swagger.parser.SwaggerParser;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.io.api.ByteBuffer;
 import be.nabu.utils.io.api.ReadableContainer;
@@ -44,12 +64,23 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 
 	@Override
 	protected List<Property<?>> getCreateProperties() {
-		return null;
+		return Arrays.asList(new SimpleProperty<Boolean>("Expose All Services", Boolean.class, false));
 	}
 
 	@Override
 	protected SwaggerClient newInstance(MainController controller, RepositoryEntry entry, Value<?>... values) throws IOException {
-		return new SwaggerClient(entry.getId(), entry.getContainer(), entry.getRepository());
+		SwaggerClient swaggerClient = new SwaggerClient(entry.getId(), entry.getContainer(), entry.getRepository());
+		// all new ones should be limited by default
+		swaggerClient.getConfig().setExposeAllServices(false);
+		for (Value<?> value : values) {
+			if (value.getProperty().getName().equals("Expose All Services")) {
+				Boolean result = (Boolean) value.getValue();
+				if (result != null && result) {
+					swaggerClient.getConfig().setExposeAllServices(true);
+				}
+			}
+		}
+		return swaggerClient;
 	}
 
 	public String getCategory() {
@@ -65,6 +96,8 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 		AnchorPane.setRightAnchor(scroll, 0d);
 		VBox vbox = new VBox();
 		HBox buttons = new HBox();
+		buttons.setPadding(new Insets(10));
+		buttons.setAlignment(Pos.CENTER);
 		vbox.getChildren().add(buttons);
 		Button upload = new Button("Update from file");
 		upload.addEventHandler(ActionEvent.ANY, new EventHandler<ActionEvent>() {
@@ -186,11 +219,126 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 			}
 		});
 		buttons.getChildren().addAll(upload, download, view);
-		vbox.prefWidthProperty().bind(scroll.widthProperty());
+		vbox.prefWidthProperty().bind(scroll.widthProperty().subtract(25));
 		scroll.setContent(vbox);
 		AnchorPane anchorPane = new AnchorPane();
-		display(instance, anchorPane);
+		Accordion accordion = displayWithAccordion(instance, anchorPane);
 		vbox.getChildren().add(anchorPane);
+		
+		
+		VBox drawOperationIds = drawOperationIds(instance);
+		
+		// allow choosing of exposed operations
+		TitledPane operations = new TitledPane("Operations", drawOperationIds);
+		accordion.getPanes().add(operations);
+
 		pane.getChildren().add(scroll);
 	}
+
+	public static VBox drawOperationIds(SwaggerClient instance) {
+		VBox operationIds = new VBox();
+		TextField filter = new TextField();
+		operationIds.getChildren().add(filter);
+		VBox.setMargin(filter, new Insets(10, 0, 10, 0));
+		Map<SwaggerMethod, BooleanProperty> map = new HashMap<SwaggerMethod, BooleanProperty>();
+		if (instance.getDefinition() != null) {
+			for (SwaggerPath path : instance.getDefinition().getPaths()) {
+				for (SwaggerMethod method : path.getMethods()) {
+					String prettifiedName = SwaggerParser.cleanup(method.getOperationId() == null ? method.getMethod() + path.getPath(): method.getOperationId());
+					HBox box = new HBox();
+					CheckBox checkBox = new CheckBox(method.getMethod().toUpperCase() + " " + path.getPath());
+					
+					checkBox.setSelected(instance.getConfig().getOperationIds() != null && instance.getConfig().getOperationIds().indexOf(prettifiedName) >= 0);
+					
+					checkBox.selectedProperty().addListener(new ChangeListener<Boolean>() {
+						@Override
+						public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) {
+							// if we didn't set it or set it to true, we expose all, makes no sense to change it
+							if (newValue != null && newValue) {
+								if (instance.getConfig().getOperationIds() == null) {
+									instance.getConfig().setOperationIds(new ArrayList<String>());
+								}
+								if (instance.getConfig().getOperationIds().indexOf(prettifiedName) < 0) {
+									instance.getConfig().getOperationIds().add(prettifiedName);
+									MainController.getInstance().setChanged();
+								}
+							}
+							else if (instance.getConfig().getOperationIds() != null) {
+								int indexOf = instance.getConfig().getOperationIds().indexOf(prettifiedName);
+								if (indexOf >= 0) {
+									instance.getConfig().getOperationIds().remove(indexOf);
+									MainController.getInstance().setChanged();
+								}
+							}
+						}
+					});
+					
+					Label operationId = new Label(" (" + prettifiedName + ")");
+					operationId.setStyle("-fx-text-fill: #aaa");
+					box.getChildren().addAll(checkBox, operationId);
+					if (method.getDescription() != null) {
+						MainController.getInstance().attachTooltip(operationId, method.getDescription());
+					}
+					HBox spacer = new HBox();
+					HBox.setHgrow(spacer, Priority.ALWAYS);
+					box.getChildren().add(spacer);
+					Button button = new Button();
+					button.setGraphic(MainController.loadFixedSizeGraphic("right-chevron.png", 12));
+					button.addEventHandler(ActionEvent.ANY, new EventHandler<ActionEvent>() {
+						@SuppressWarnings({ "unchecked", "rawtypes" })
+						@Override
+						public void handle(ActionEvent event) {
+							SwaggerService swaggerService = new SwaggerService(instance.getId() + ".services." + prettifiedName, instance, path, method);
+							ArtifactGUIManager<?> guiManager = MainController.getInstance().getGUIManager(swaggerService.getClass());
+							System.out.println("GUIManager is: " + guiManager);
+							if (guiManager instanceof PortableArtifactGUIManager) {
+								AnchorPane pane = new AnchorPane();
+								try {
+									((PortableArtifactGUIManager) guiManager).display(MainController.getInstance(), pane, swaggerService);
+									Tab newTab = MainController.getInstance().newTab(swaggerService.getId());
+									newTab.setContent(pane);
+								}
+								catch (Exception e) {
+									MainController.getInstance().notify(e);
+								}
+							}
+						}
+					});
+					box.getChildren().add(button);
+					
+					box.setPadding(new Insets(10));
+					operationIds.getChildren().add(box);
+					map.put(method, new SimpleBooleanProperty(true));
+					box.visibleProperty().bind(map.get(method));
+					box.managedProperty().bind(box.visibleProperty());
+				}
+			}
+		}
+		
+		filter.textProperty().addListener(new ChangeListener<String>() {
+			@Override
+			public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue) {
+				if (newValue == null || newValue.trim().isEmpty()) {
+					for (BooleanProperty property : map.values()) {
+						property.set(true);
+					}
+				}
+				else {
+					for (SwaggerPath path : instance.getDefinition().getPaths()) {
+						for (SwaggerMethod method : path.getMethods()) {
+							map.get(method).set(path.getPath().toLowerCase().indexOf(newValue.toLowerCase()) >= 0 || (method.getDescription() != null && method.getDescription().toLowerCase().indexOf(newValue.toLowerCase()) >= 0));
+						}
+					}
+				}
+			}
+		});
+		return operationIds;
+	}
+
+	@Override
+	protected List<String> getBlacklistedProperties() {
+		return Arrays.asList("operationIds");
+	}
+	
+	
 }
