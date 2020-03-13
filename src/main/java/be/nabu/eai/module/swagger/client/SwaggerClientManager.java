@@ -36,8 +36,8 @@ public class SwaggerClientManager extends JAXBArtifactManager<SwaggerClientConfi
 	 */
 	private Set<String> getUsedTypes(DefinedService service) {
 		Set<String> set = new HashSet<String>();
-		set.addAll(StructureManager.getComplexReferences(service.getServiceInterface().getInputDefinition()));
-		set.addAll(StructureManager.getComplexReferences(service.getServiceInterface().getOutputDefinition()));
+		set.addAll(StructureManager.getComplexReferences(service.getServiceInterface().getInputDefinition(), true));
+		set.addAll(StructureManager.getComplexReferences(service.getServiceInterface().getOutputDefinition(), true));
 		return set;
 	}
 	
