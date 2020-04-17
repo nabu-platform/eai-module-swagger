@@ -276,7 +276,7 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 					Label operationId = new Label(" (" + prettifiedName + ")");
 					operationId.setStyle("-fx-text-fill: #aaa");
 					box.getChildren().addAll(checkBox, operationId);
-					if (method.getDescription() != null) {
+					if (method.getDescription() != null && !method.getDescription().trim().isEmpty()) {
 						MainController.getInstance().attachTooltip(operationId, method.getDescription());
 					}
 					HBox spacer = new HBox();
@@ -290,7 +290,6 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 						public void handle(ActionEvent event) {
 							SwaggerService swaggerService = new SwaggerService(instance.getId() + ".services." + prettifiedName, instance, path, method);
 							ArtifactGUIManager<?> guiManager = MainController.getInstance().getGUIManager(swaggerService.getClass());
-							System.out.println("GUIManager is: " + guiManager);
 							if (guiManager instanceof PortableArtifactGUIManager) {
 								AnchorPane pane = new AnchorPane();
 								try {
@@ -324,9 +323,15 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 					}
 				}
 				else {
+					String regex = newValue.contains("*") ? "(?i)(?s).*" + newValue.replace("*", ".*") + ".*" : null;
 					for (SwaggerPath path : instance.getDefinition().getPaths()) {
 						for (SwaggerMethod method : path.getMethods()) {
-							map.get(method).set(path.getPath().toLowerCase().indexOf(newValue.toLowerCase()) >= 0 || (method.getDescription() != null && method.getDescription().toLowerCase().indexOf(newValue.toLowerCase()) >= 0));
+							if (regex != null) {
+								map.get(method).set(path.getPath().matches(regex) || (method.getDescription() != null && method.getDescription().matches(regex)));
+							}
+							else {
+								map.get(method).set(path.getPath().toLowerCase().indexOf(newValue.toLowerCase()) >= 0 || (method.getDescription() != null && method.getDescription().toLowerCase().indexOf(newValue.toLowerCase()) >= 0));
+							}
 						}
 					}
 				}

@@ -1,2 +1,3 @@
 be.nabu.eai.module.swagger.client.JSONExporter
 be.nabu.eai.module.swagger.provider.SwaggerContextMenuProvider
+be.nabu.eai.module.swagger.client.SwaggerClientMenu
