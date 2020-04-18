@@ -10,8 +10,6 @@ import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import be.nabu.eai.api.Advanced;
 import be.nabu.eai.api.Comment;
-import be.nabu.eai.api.ContextualEnumerator;
-import be.nabu.eai.api.ContextualValueEnumerator;
 import be.nabu.eai.api.Enumerator;
 import be.nabu.eai.api.EnvironmentSpecific;
 import be.nabu.eai.api.ValueEnumerator;
@@ -19,7 +17,6 @@ import be.nabu.eai.module.http.client.HTTPClientArtifact;
 import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.eai.repository.jaxb.CharsetAdapter;
 import be.nabu.eai.repository.jaxb.TimeZoneAdapter;
-import be.nabu.libs.artifacts.api.Artifact;
 import be.nabu.libs.swagger.api.SwaggerSecurityDefinition.SecurityType;
 
 @XmlRootElement(name = "swaggerClient")
@@ -180,7 +177,6 @@ public class SwaggerClientConfiguration {
 		this.allowDomain = allowDomain;
 	}
 	
-	@ContextualValueEnumerator(enumerator = SwaggerOperationEnumerator.class)
 	public List<String> getOperationIds() {
 		return operationIds;
 	}
@@ -188,10 +184,4 @@ public class SwaggerClientConfiguration {
 		this.operationIds = operationIds;
 	}
 
-	public static class SwaggerOperationEnumerator implements ContextualEnumerator {
-		@Override
-		public List<?> enumerate(Artifact artifact) {
-			return null;
-		}
-	}
 }
