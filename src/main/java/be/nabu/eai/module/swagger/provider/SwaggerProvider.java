@@ -123,7 +123,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 								throw new HTTPException(500, "Could not construct swagger");
 							}
 							byte [] content = swagger.getBytes(Charset.forName("UTF-8"));
-							return new DefaultHTTPResponse(200, HTTPCodes.getMessage(200), new PlainMimeContentPart(null, IOUtils.wrap(content, true), 
+							return new DefaultHTTPResponse(request, 200, HTTPCodes.getMessage(200), new PlainMimeContentPart(null, IOUtils.wrap(content, true), 
 								new MimeHeader("Content-Length", "" + content.length),
 								new MimeHeader("Content-Type", "application/json; charset=utf-8")
 							));
@@ -204,9 +204,10 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		if (getConfig().getHost() != null) {
 			definition.setHost(getConfig().getHost());
 		}
-		// only set the host if you have one
-		else if (application.getConfig().getVirtualHost().getConfig().getHost() != null) {
-			definition.setHost(application.getConfig().getVirtualHost().getConfig().getHost() + (port == null ? "" : ":" + port));
+		// preferably always have a host...
+		else {
+			String host = application.getConfig().getVirtualHost().getConfig().getHost() != null ? application.getConfig().getVirtualHost().getConfig().getHost() : "localhost";
+			definition.setHost(host + (port == null ? "" : ":" + port));
 		}
 		
 		boolean isSecure = server.isSecure();
@@ -332,7 +333,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							continue;
 						}
 						
-						String fullPath = getRelativePath(path, iface.getConfig().getPath());
+						String fullPath = getRelativePath(path, iface.getConfig().getPath() == null || iface.getConfig().getPath().trim().isEmpty() ? rest.getId() : iface.getConfig().getPath());
 						
 						// if we have path parameters and they need to be decamelified, update them in the path as well
 						if (iface.getConfig().getNamingConvention() != null) {
@@ -485,12 +486,18 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						}
 						method.setParameters(parameters);
 						
-						// if there is a rate limiter
-						if (application.getConfig().getRateLimiter() != null) {
-							SwaggerResponseImpl c429 = new SwaggerResponseImpl();
-							c429.setCode(429);
-							c429.setDescription(HTTPCodes.getMessage(429));
-							responses.add(c429);
+						try {
+							// if there is a rate limiter
+							if (application.getRateLimiter() != null) {
+								SwaggerResponseImpl c429 = new SwaggerResponseImpl();
+								c429.setCode(429);
+								c429.setDescription(HTTPCodes.getMessage(429));
+								responses.add(c429);
+							}
+						}
+						catch (Exception e) {
+							e.printStackTrace();
+							// ignore?
 						}
 						
 						// if we have security, we can send back a 401 and 403
@@ -651,14 +658,20 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 			method.setOperationId(fragment.getId());
 			
 			List<SwaggerParameter> parameters = new ArrayList<SwaggerParameter>();
-			for (Element<?> element : fragment.getHeaderParameters()) {
-				parameters.add(createParameter(element, ParameterLocation.HEADER));
+			if (fragment.getHeaderParameters() != null) {
+				for (Element<?> element : fragment.getHeaderParameters()) {
+					parameters.add(createParameter(element, ParameterLocation.HEADER));
+				}
 			}
-			for (Element<?> element : fragment.getQueryParameters()) {
-				parameters.add(createParameter(element, ParameterLocation.QUERY));
+			if (fragment.getQueryParameters() != null) {
+				for (Element<?> element : fragment.getQueryParameters()) {
+					parameters.add(createParameter(element, ParameterLocation.QUERY));
+				}
 			}
-			for (Element<?> element : fragment.getPathParameters()) {
-				parameters.add(createParameter(element, ParameterLocation.PATH));
+			if (fragment.getPathParameters() != null) {
+				for (Element<?> element : fragment.getPathParameters()) {
+					parameters.add(createParameter(element, ParameterLocation.PATH));
+				}
 			}
 			
 			if (fragment.getInput() != null) {
@@ -740,6 +753,10 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		parameter.setName(element.getName());
 		parameter.setLocation(location);
 		parameter.setElement(element);
+		if (element.getType().isList(element.getProperties())) {
+			Value<CollectionFormat> property = element.getProperty(CollectionFormatProperty.getInstance());
+			parameter.setCollectionFormat(property == null ? CollectionFormat.MULTI : property.getValue());
+		}
 		return parameter;
 	}
 

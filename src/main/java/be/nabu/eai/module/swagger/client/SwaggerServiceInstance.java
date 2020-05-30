@@ -17,6 +17,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import be.nabu.eai.module.rest.WebResponseType;
+import be.nabu.eai.module.swagger.client.api.SwaggerOverride;
+import be.nabu.eai.module.swagger.client.api.SwaggerOverrideProvider;
 import be.nabu.eai.repository.EAIResourceRepository;
 import be.nabu.libs.authentication.api.principals.BasicPrincipal;
 import be.nabu.libs.converter.ConverterFactory;
@@ -41,6 +43,7 @@ import be.nabu.libs.swagger.api.SwaggerResponse;
 import be.nabu.libs.swagger.api.SwaggerSecurityDefinition;
 import be.nabu.libs.swagger.api.SwaggerSecuritySetting;
 import be.nabu.libs.swagger.api.SwaggerParameter.ParameterLocation;
+import be.nabu.libs.swagger.api.SwaggerSecurityDefinition.SecurityType;
 import be.nabu.libs.types.ComplexContentWrapperFactory;
 import be.nabu.libs.types.TypeUtils;
 import be.nabu.libs.types.api.ComplexContent;
@@ -141,10 +144,16 @@ public class SwaggerServiceInstance implements ServiceInstance {
 	@Override
 	public ComplexContent execute(ExecutionContext executionContext, ComplexContent input) throws ServiceException {
 		try {
+			SwaggerOverrideProvider overrideProvider = service.getClient().getOverrideProvider();
+			SwaggerOverride override = overrideProvider == null ? null : overrideProvider.overrideFor(service.getMethod().getOperationId(), service.getMethod().getMethod(), service.getPath().getPath());
 			// runtime wins
 			String host = input == null ? null : (String) input.get("host");
+			// check specific override
+			if (host == null && override != null) {
+				host = override.getHost();
+			}
 			if (host == null) {
-				// otherwise something you explicitly configured
+				// otherwise something you explicitly configured for the whole client
 				host = service.getClient().getConfig().getHost();
 				if (host == null) {
 					// otherwise the default provided host
@@ -156,6 +165,9 @@ public class SwaggerServiceInstance implements ServiceInstance {
 			}
 			
 			String basePath = input == null ? null : (String) input.get("basePath");
+			if (basePath == null && override != null) {
+				basePath = override.getBasePath();
+			}
 			if (basePath == null) {
 				basePath = service.getClient().getConfig().getBasePath();
 				if (basePath == null) {
@@ -169,6 +181,9 @@ public class SwaggerServiceInstance implements ServiceInstance {
 			}
 
 			Charset charset = service.getClient().getConfig().getCharset();
+			if (charset == null && override != null) {
+				charset = override.getCharset();
+			}
 			if (charset == null) {
 				charset = Charset.defaultCharset();
 			}
@@ -391,21 +406,18 @@ public class SwaggerServiceInstance implements ServiceInstance {
 				part.setHeader(new MimeHeader("User-Agent", service.getClient().getConfig().getUserAgent()));
 			}
 			
-			final String oauth2Token = input == null ? null : (String) input.get("authentication/oauth2Token");
-			if (oauth2Token != null) {
-				part.setHeader(new MimeHeader("Authorization", "Bearer " + oauth2Token));
+			// we support bearer tokens for oauth2
+			String bearerToken = input == null ? null : (String) input.get("authentication/oauth2Token");
+			// and in general
+			if (bearerToken == null) {
+				bearerToken = input == null ? null : (String) input.get("authentication/bearerToken");
+			}
+			if (bearerToken != null) {
+				part.setHeader(new MimeHeader("Authorization", "Bearer " + bearerToken));
 			}
 
-			final String apiHeaderKey = input == null ? null : (String) input.get("authentication/apiHeaderKey");
-			if (apiHeaderKey != null) {
-				Element<?> element = ((ComplexType) input.getType().get("authentication").getType()).get("apiHeaderKey");
-				Value<String> property = element.getProperty(AliasProperty.getInstance());
-				String name = property == null ? "apiKey" : property.getValue();
-				part.setHeader(new MimeHeader(name, apiHeaderKey));
-			}
-			
-			final String username = input == null || input.get("authentication/username") == null ? service.getClient().getConfig().getUsername() : (String) input.get("authentication/username");
-			final String password = input == null || input.get("authentication/password") == null ? service.getClient().getConfig().getPassword() : (String) input.get("authentication/password");
+			final String username = input == null || input.get("authentication/username") == null ? (override == null || override.getUsername() == null ? service.getClient().getConfig().getUsername() : override.getUsername()) : (String) input.get("authentication/username");
+			final String password = input == null || input.get("authentication/password") == null ? (override == null || override.getPassword() == null ? service.getClient().getConfig().getPassword() : override.getPassword()) : (String) input.get("authentication/password");
 
 			BasicPrincipal principal = null;
 			if (username != null) {
@@ -452,26 +464,65 @@ public class SwaggerServiceInstance implements ServiceInstance {
 					path += URIUtils.encodeURIComponent(key, false) + "=" + URIUtils.encodeURIComponent(value, false);
 				}
 			}
-
-			final String apiQueryKey = input == null ? null : (String) input.get("authentication/apiQueryKey");
+			
+			// we support api keys in the header
+			String apiHeaderKey = input == null ? null : (String) input.get("authentication/apiHeaderKey");
+			if (apiHeaderKey == null && override != null) {
+				apiHeaderKey = override.getApiHeaderKey();
+			}
+			if (apiHeaderKey == null) {
+				apiHeaderKey = service.getClient().getConfig().getApiHeaderKey();
+			}
+			if (apiHeaderKey != null) {
+				Element<?> element = ((ComplexType) input.getType().get("authentication").getType()).get("apiHeaderKey");
+				String name = service.getClient().getConfig().getApiHeaderName();
+				// the alias is only set if it is defined in the swagger itself
+				if (name == null && element != null) {
+					Value<String> property = element.getProperty(AliasProperty.getInstance());
+					if (property != null) {
+						name = property.getValue();
+					}
+				}
+				part.setHeader(new MimeHeader(name == null ? "apiKey" : name, apiHeaderKey));
+			}
+			
+			// we support api keys in the query
+			String apiQueryKey = input == null ? null : (String) input.get("authentication/apiQueryKey");
+			if (apiQueryKey == null && override != null) {
+				apiQueryKey = override.getApiQueryKey();
+			}
+			if (apiQueryKey == null) {
+				apiQueryKey = service.getClient().getConfig().getApiQueryKey();
+			}
 			if (apiQueryKey != null) {
 				Element<?> element = ((ComplexType) input.getType().get("authentication").getType()).get("apiQueryKey");
-				Value<String> property = element.getProperty(AliasProperty.getInstance());
-				String name = property == null ? "apiKey" : property.getValue();
+				String name = service.getClient().getConfig().getApiQueryName();
+				// the alias is only set if it is defined in the swagger itself
+				if (name == null && element != null) {
+					Value<String> property = element.getProperty(AliasProperty.getInstance());
+					if (property != null) {
+						name = property.getValue();
+					}
+				}
 				if (first) {
 					path += "?";
 				}
 				else {
 					path += "&";
 				}
-				path += name + "=" + apiQueryKey;
+				path += (name == null ? "apiKey" : name) + "=" + apiQueryKey;
 			}
 			
-			HTTPRequest request = new DefaultHTTPRequest(
-				service.getMethod().getMethod() == null ? "GET" : service.getMethod().getMethod().toUpperCase(),
-				path,
-				part
-			);
+			List<SecurityType> security = override == null ? null : override.getSecurity();
+			if (security == null) {
+				security = service.getClient().getConfig().getSecurity();
+			}
+			
+			boolean basicAuthenticated = false;
+			if (principal != null && security != null && security.contains(SecurityType.basic)) {
+				part.setHeader(new MimeHeader(HTTPUtils.SERVER_AUTHENTICATE_RESPONSE, new BasicAuthentication().authenticate(principal, "basic")));
+				basicAuthenticated = true;
+			}
 			
 			if (service.getMethod().getSecurity() != null && !service.getMethod().getSecurity().isEmpty() 
 					&& service.getClient().getDefinition().getSecurityDefinitions() != null && !service.getClient().getDefinition().getSecurityDefinitions().isEmpty() 
@@ -481,10 +532,15 @@ public class SwaggerServiceInstance implements ServiceInstance {
 						if (definition.getName().equals(setting.getName())) {
 							switch(definition.getType()) {
 								case basic:
-									request.getContent().setHeader(new MimeHeader(HTTPUtils.SERVER_AUTHENTICATE_RESPONSE, new BasicAuthentication().authenticate(principal, "basic")));
+									if (!basicAuthenticated) {
+										part.setHeader(new MimeHeader(HTTPUtils.SERVER_AUTHENTICATE_RESPONSE, new BasicAuthentication().authenticate(principal, "basic")));
+									}
 								break;
 								case apiKey:
-									request.getContent().setHeader(new MimeHeader(HTTPUtils.SERVER_AUTHENTICATE_RESPONSE, definition.getFieldName() + " " + principal.getName()));
+									// if this was filled in, api key is already done
+									if (apiHeaderKey == null && apiQueryKey == null) {
+										part.setHeader(new MimeHeader(HTTPUtils.SERVER_AUTHENTICATE_RESPONSE, definition.getFieldName() + " " + principal.getName()));
+									}
 								break;
 								default:
 									logger.warn("Currently no support for authentication type: " + definition.getType());
@@ -496,11 +552,19 @@ public class SwaggerServiceInstance implements ServiceInstance {
 			}
 			// if you explicitly passed in authentication, we use that
 			else if (input != null && input.get("authentication/username") != null) {
-				request.getContent().setHeader(new MimeHeader(HTTPUtils.SERVER_AUTHENTICATE_RESPONSE, new BasicAuthentication().authenticate(principal, "basic")));
+				part.setHeader(new MimeHeader(HTTPUtils.SERVER_AUTHENTICATE_RESPONSE, new BasicAuthentication().authenticate(principal, "basic")));
 			}
 
+			HTTPRequest request = new DefaultHTTPRequest(
+			service.getMethod().getMethod() == null ? "GET" : service.getMethod().getMethod().toUpperCase(),
+				path,
+				part
+			);
+			
 			HTTPClient client = Services.getTransactionable(executionContext, input == null ? null : (String) input.get("transactionId"), service.getClient().getConfig().getHttpClient()).getClient();
-			HTTPResponse response = client.execute(request, principal, isSecure(), true);
+			
+			boolean secure = override != null && override.getScheme() != null ? override.getScheme().equals("https") : isSecure();
+			HTTPResponse response = client.execute(request, principal, secure, true);
 			
 			SwaggerResponse chosenResponse = null;
 			if (service.getMethod().getResponses() != null) {
@@ -519,7 +583,8 @@ public class SwaggerServiceInstance implements ServiceInstance {
 				}
 			}
 			
-			if (chosenResponse == null || ((response.getCode() < 200 || response.getCode() >= 300) && service.getClient().getConfig().isThrowException())) {
+			boolean throwException = override != null && override.getThrowException() != null ? override.getThrowException() : service.getClient().getConfig().isThrowException();
+			if (chosenResponse == null || ((response.getCode() < 200 || response.getCode() >= 300) && throwException)) {
 				byte [] content = null;
 				if (response.getContent() instanceof ContentPart) {
 					ReadableContainer<ByteBuffer> readable = ((ContentPart) response.getContent()).getReadable();
@@ -616,7 +681,28 @@ public class SwaggerServiceInstance implements ServiceInstance {
 							binding = xmlBinding;
 						}
 						else {
-							throw new ServiceException("SWAGGER-5", "Unexpected response content type: " + responseContentType);
+							String content = "";
+							if (responseContentType != null && responseContentType.startsWith("text/")) {
+								ReadableContainer<ByteBuffer> readable = ((ContentPart) response.getContent()).getReadable();
+								if (readable != null) {
+									try {
+										byte[] bytes = IOUtils.toBytes(readable);
+										content = "\n" + new String(bytes, Charset.forName("UTF-8"));
+									}
+									catch (Exception e) {
+										logger.warn("Could not serialize response", e);
+									}
+									finally {
+										try {
+											readable.close();
+										}
+										catch (Exception e) {
+											logger.warn("Could not close readable", e);
+										}
+									}
+								}
+							}
+							throw new ServiceException("SWAGGER-5", "Unexpected response content type: " + responseContentType + content);
 						}
 						
 						ComplexContent unmarshal = binding.unmarshal(IOUtils.toInputStream(((ContentPart) response.getContent()).getReadable()), new Window[0]);

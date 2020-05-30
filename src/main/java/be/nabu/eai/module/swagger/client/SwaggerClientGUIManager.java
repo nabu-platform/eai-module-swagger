@@ -64,7 +64,8 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 
 	@Override
 	protected List<Property<?>> getCreateProperties() {
-		return Arrays.asList(new SimpleProperty<Boolean>("Expose All Services", Boolean.class, false));
+		//return Arrays.asList(new SimpleProperty<Boolean>("Expose All Services", Boolean.class, false));
+		return null;
 	}
 
 	@Override
@@ -72,6 +73,8 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 		SwaggerClient swaggerClient = new SwaggerClient(entry.getId(), entry.getContainer(), entry.getRepository());
 		// all new ones should be limited by default
 		swaggerClient.getConfig().setExposeAllServices(false);
+		// by default we also use tags to group
+		swaggerClient.getConfig().setFolderStructure(FolderStructure.TAG);
 		for (Value<?> value : values) {
 			if (value.getProperty().getName().equals("Expose All Services")) {
 				Boolean result = (Boolean) value.getValue();
@@ -225,7 +228,6 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 		Accordion accordion = displayWithAccordion(instance, anchorPane);
 		vbox.getChildren().add(anchorPane);
 		
-		
 		VBox drawOperationIds = drawOperationIds(instance);
 		
 		// allow choosing of exposed operations
@@ -238,6 +240,7 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 	public static VBox drawOperationIds(SwaggerClient instance) {
 		VBox operationIds = new VBox();
 		TextField filter = new TextField();
+		filter.setPromptText("Search");
 		operationIds.getChildren().add(filter);
 		VBox.setMargin(filter, new Insets(10, 0, 10, 0));
 		Map<SwaggerMethod, BooleanProperty> map = new HashMap<SwaggerMethod, BooleanProperty>();

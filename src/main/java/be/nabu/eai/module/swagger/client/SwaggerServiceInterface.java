@@ -7,9 +7,11 @@ import be.nabu.libs.swagger.api.SwaggerMethod;
 import be.nabu.libs.swagger.api.SwaggerPath;
 import be.nabu.libs.swagger.api.SwaggerSecurityDefinition.SecurityType;
 import be.nabu.libs.types.SimpleTypeWrapperFactory;
+import be.nabu.libs.types.base.Scope;
 import be.nabu.libs.types.base.SimpleElementImpl;
 import be.nabu.libs.types.base.ValueImpl;
 import be.nabu.libs.types.properties.MinOccursProperty;
+import be.nabu.libs.types.properties.ScopeProperty;
 import be.nabu.libs.types.structure.Structure;
 
 public class SwaggerServiceInterface extends SwaggerProxyInterface {
@@ -22,9 +24,11 @@ public class SwaggerServiceInterface extends SwaggerProxyInterface {
 	protected Structure initializeInput() {
 		Structure input = super.initializeInput();
 		// allow dynamic overriding of host at runtime
-		input.add(new SimpleElementImpl<String>("host", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+		input.add(new SimpleElementImpl<String>("host", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0),
+			new ValueImpl<Scope>(ScopeProperty.getInstance(), Scope.PRIVATE)));
 		// allow dynamic overriding of the basepath
-		input.add(new SimpleElementImpl<String>("basePath", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+		input.add(new SimpleElementImpl<String>("basePath", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0),
+			new ValueImpl<Scope>(ScopeProperty.getInstance(), Scope.PRIVATE)));
 		return input;
 	}
 

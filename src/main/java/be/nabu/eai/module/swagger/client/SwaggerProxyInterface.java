@@ -18,12 +18,14 @@ import be.nabu.libs.swagger.parser.SwaggerParser;
 import be.nabu.libs.types.SimpleTypeWrapperFactory;
 import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.base.ComplexElementImpl;
+import be.nabu.libs.types.base.Scope;
 import be.nabu.libs.types.base.SimpleElementImpl;
 import be.nabu.libs.types.base.ValueImpl;
 import be.nabu.libs.types.java.BeanResolver;
 import be.nabu.libs.types.properties.AliasProperty;
 import be.nabu.libs.types.properties.MaxOccursProperty;
 import be.nabu.libs.types.properties.MinOccursProperty;
+import be.nabu.libs.types.properties.ScopeProperty;
 import be.nabu.libs.types.structure.Structure;
 import be.nabu.utils.mime.api.Header;
 
@@ -86,7 +88,8 @@ public class SwaggerProxyInterface implements DefinedServiceInterface {
 			input.add(new ComplexElementImpl("authentication", authentication, input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
 		}
 		
-		input.add(new ComplexElementImpl("headers", (ComplexType) BeanResolver.getInstance().resolve(Header.class), input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0), new ValueImpl<Integer>(MaxOccursProperty.getInstance(), 0)));
+		input.add(new ComplexElementImpl("headers", (ComplexType) BeanResolver.getInstance().resolve(Header.class), input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0), new ValueImpl<Integer>(MaxOccursProperty.getInstance(), 0),
+			new ValueImpl<Scope>(ScopeProperty.getInstance(), Scope.PRIVATE)));
 		
 		return input;
 	}
@@ -98,7 +101,7 @@ public class SwaggerProxyInterface implements DefinedServiceInterface {
 				if (apiKeyLocation == null || apiKeyLocation.equals(ParameterLocation.HEADER)) {
 					authentication.add(new SimpleElementImpl<String>("apiHeaderKey", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), authentication, new ValueImpl<String>(AliasProperty.getInstance(), apiKeyName)));
 				}
-				else {
+				if (apiKeyLocation != null && apiKeyLocation.equals(ParameterLocation.QUERY)) {
 					authentication.add(new SimpleElementImpl<String>("apiQueryKey", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), authentication, new ValueImpl<String>(AliasProperty.getInstance(), apiKeyName)));
 				}
 			break;
@@ -145,7 +148,8 @@ public class SwaggerProxyInterface implements DefinedServiceInterface {
 			}
 		}
 
-		output.add(new ComplexElementImpl("headers", (ComplexType) BeanResolver.getInstance().resolve(Header.class), output, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0), new ValueImpl<Integer>(MaxOccursProperty.getInstance(), 0)));
+		output.add(new ComplexElementImpl("headers", (ComplexType) BeanResolver.getInstance().resolve(Header.class), output, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0), new ValueImpl<Integer>(MaxOccursProperty.getInstance(), 0),
+			new ValueImpl<Scope>(ScopeProperty.getInstance(), Scope.PRIVATE)));
 		
 		return output;
 	}

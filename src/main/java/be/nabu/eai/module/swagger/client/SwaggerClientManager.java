@@ -51,8 +51,30 @@ public class SwaggerClientManager extends JAXBArtifactManager<SwaggerClientConfi
 			Set<String> set = new HashSet<String>();
 			for (SwaggerPath path : artifact.getDefinition().getPaths()) {
 				for (SwaggerMethod method : path.getMethods()) {
-					String prettifiedName = SwaggerParser.cleanup(method.getOperationId() == null ? method.getMethod() + path.getPath(): method.getOperationId());
-					if (!exposeAll && (operationIds == null || operationIds.isEmpty() || operationIds.indexOf(prettifiedName) < 0)) {
+					String prettifiedName;
+					FolderStructure folderStructure = artifact.getConfig().getFolderStructure();
+					// backwards compatibility I'm afraid... :(
+					if (folderStructure == null) {
+						folderStructure = FolderStructure.HIERARCHY;
+					}
+					switch(folderStructure) {
+						// the default as it was originally
+						case HIERARCHY:
+							prettifiedName = SwaggerParser.cleanup(method.getOperationId() == null ? method.getMethod() + path.getPath(): method.getOperationId(), true);
+						break;
+						case FLAT:
+							prettifiedName = SwaggerParser.cleanup(method.getOperationId() == null ? method.getMethod() + path.getPath(): method.getOperationId(), false);
+						break;
+						default:
+							prettifiedName = SwaggerParser.cleanup(method.getOperationId() == null ? method.getMethod() + path.getPath(): method.getOperationId(), false);
+							if (method.getTags() != null && !method.getTags().isEmpty()) {
+								String namespace = SwaggerParser.cleanup(method.getTags().get(0), false);
+								prettifiedName = namespace + "." + prettifiedName;
+							}
+					}
+					// regardless of the folderstructure, we use these operation ids
+					String fixedOperationId = SwaggerParser.cleanup(method.getOperationId() == null ? method.getMethod() + path.getPath(): method.getOperationId(), true);
+					if (!exposeAll && (operationIds == null || operationIds.isEmpty() || operationIds.indexOf(fixedOperationId) < 0)) {
 						continue;
 					}
 					SwaggerProxyInterface iface = new SwaggerProxyInterface(root.getId() + ".interfaces." + prettifiedName, artifact.getDefinition(), path, method, artifact.getConfig().getSecurity());
