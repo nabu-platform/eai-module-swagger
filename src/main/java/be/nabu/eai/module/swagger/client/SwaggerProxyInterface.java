@@ -112,6 +112,9 @@ public class SwaggerProxyInterface implements DefinedServiceInterface {
 			case oauth2:
 				authentication.add(new SimpleElementImpl<String>("oauth2Token", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), authentication));
 			break;
+			case bearer:
+				authentication.add(new SimpleElementImpl<String>("bearerToken", SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), authentication));
+			break;
 		}
 	}
 	
