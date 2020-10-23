@@ -117,7 +117,7 @@ public class SwaggerClientManager extends JAXBArtifactManager<SwaggerClientConfi
 			EAINode node = new EAINode();
 			node.setArtifact(child);
 			node.setLeaf(true);
-			MemoryEntry entry = new MemoryEntry(root.getRepository(), parent, node, id, id.substring(parentId.length() + 1));
+			MemoryEntry entry = new MemoryEntry(artifact.getId(), root.getRepository(), parent, node, id, id.substring(parentId.length() + 1));
 			node.setEntry(entry);
 			parent.addChildren(entry);
 			entries.add(entry);

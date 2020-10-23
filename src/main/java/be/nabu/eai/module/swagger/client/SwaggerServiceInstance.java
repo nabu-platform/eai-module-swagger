@@ -551,7 +551,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 				}
 			}
 			// if you explicitly passed in authentication, we use that
-			else if (input != null && input.get("authentication/username") != null) {
+			else if (input != null && input.get("authentication/username") != null && !basicAuthenticated) {
 				part.setHeader(new MimeHeader(HTTPUtils.SERVER_AUTHENTICATE_RESPONSE, new BasicAuthentication().authenticate(principal, "basic")));
 			}
 

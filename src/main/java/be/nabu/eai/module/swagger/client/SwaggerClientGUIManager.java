@@ -27,6 +27,7 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tab;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TitledPane;
 import javafx.scene.layout.AnchorPane;
@@ -50,7 +51,9 @@ import be.nabu.libs.resources.api.Resource;
 import be.nabu.libs.resources.api.WritableResource;
 import be.nabu.libs.swagger.api.SwaggerMethod;
 import be.nabu.libs.swagger.api.SwaggerPath;
+import be.nabu.libs.swagger.parser.SwaggerDefinitionImpl;
 import be.nabu.libs.swagger.parser.SwaggerParser;
+import be.nabu.libs.validator.api.ValidationMessage;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.io.api.ByteBuffer;
 import be.nabu.utils.io.api.ReadableContainer;
@@ -228,11 +231,41 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 		Accordion accordion = displayWithAccordion(instance, anchorPane);
 		vbox.getChildren().add(anchorPane);
 		
-		VBox drawOperationIds = drawOperationIds(instance);
+		try {
+			VBox drawOperationIds = drawOperationIds(instance);
 		
-		// allow choosing of exposed operations
-		TitledPane operations = new TitledPane("Operations", drawOperationIds);
-		accordion.getPanes().add(operations);
+			// allow choosing of exposed operations
+			TitledPane operations = new TitledPane("Operations", drawOperationIds);
+			accordion.getPanes().add(0, operations);
+			
+			// we want this as the default
+			accordion.setExpandedPane(operations);
+		}
+		catch (Exception e) {
+			MainController.getInstance().notify(e);
+		}
+		if (instance.getDefinition() instanceof SwaggerDefinitionImpl) {
+			List<ValidationMessage> validationMessages = ((SwaggerDefinitionImpl) instance.getDefinition()).getValidationMessages();
+			if (validationMessages != null && !validationMessages.isEmpty()) {
+				VBox messages = new VBox();
+				messages.setPadding(new Insets(10));
+				
+				StringBuilder builder = new StringBuilder();
+				for (ValidationMessage message : validationMessages) {
+					if (!builder.toString().isEmpty()) {
+						builder.append("\n");
+					}
+					builder.append("[" + message.getSeverity() + "] " + message.getMessage());
+				}
+				TextArea area = new TextArea();
+				area.setText(builder.toString());
+				area.setEditable(false);
+				messages.getChildren().addAll(area);
+				TitledPane titledPane = new TitledPane("Validation Messages", messages);
+				accordion.getPanes().add(titledPane);
+			}
+		}
+		
 
 		pane.getChildren().add(scroll);
 	}
@@ -249,7 +282,44 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 				for (SwaggerMethod method : path.getMethods()) {
 					String prettifiedName = SwaggerParser.cleanup(method.getOperationId() == null ? method.getMethod() + path.getPath(): method.getOperationId());
 					HBox box = new HBox();
-					CheckBox checkBox = new CheckBox(method.getMethod().toUpperCase() + " " + path.getPath());
+					box.setAlignment(Pos.CENTER_LEFT);
+					CheckBox checkBox = new CheckBox();
+					
+					Label methodLabel = new Label(method.getMethod().toUpperCase());
+					Label pathLabel = new Label(path.getPath());
+					HBox.setMargin(methodLabel, new Insets(0, 10, 0, 10));
+					
+					if (method.getMethod().equalsIgnoreCase("post")) {
+						methodLabel.setStyle("-fx-background-color: #49cc90; -fx-text-fill: white; -fx-font-weight: bold;");
+						methodLabel.setPadding(new Insets(5, 10, 5, 10));
+						pathLabel.setStyle("-fx-background-color: #ecfaf4; -fx-border-width: 1px; -fx-border-color: #49cc90");
+						pathLabel.setPadding(new Insets(5, 10, 5, 10));
+					}
+					else if (method.getMethod().equalsIgnoreCase("get")) {
+						methodLabel.setStyle("-fx-background-color: #61affe; -fx-text-fill: white; -fx-font-weight: bold;");
+						methodLabel.setPadding(new Insets(5, 10, 5, 10));
+						pathLabel.setStyle("-fx-background-color: #eff7ff; -fx-border-width: 1px; -fx-border-color: #61affe");
+						pathLabel.setPadding(new Insets(5, 10, 5, 10));
+					}
+					else if (method.getMethod().equalsIgnoreCase("put")) {
+						methodLabel.setStyle("-fx-background-color: #fca130; -fx-text-fill: white; -fx-font-weight: bold;");
+						methodLabel.setPadding(new Insets(5, 10, 5, 10));
+						pathLabel.setStyle("-fx-background-color: #fff5ea; -fx-border-width: 1px; -fx-border-color: #fca130");
+						pathLabel.setPadding(new Insets(5, 10, 5, 10));
+					}
+					else if (method.getMethod().equalsIgnoreCase("delete")) {
+						methodLabel.setStyle("-fx-background-color: #f93e3e; -fx-text-fill: white; -fx-font-weight: bold;");
+						methodLabel.setPadding(new Insets(5, 10, 5, 10));
+						pathLabel.setStyle("-fx-background-color: #feebeb; -fx-border-width: 1px; -fx-border-color: #f93e3e");
+						pathLabel.setPadding(new Insets(5, 10, 5, 10));
+					}
+					// any other method
+					else {
+						methodLabel.setStyle("-fx-background-color: #b03ef9; -fx-text-fill: white; -fx-font-weight: bold;");
+						methodLabel.setPadding(new Insets(5, 10, 5, 10));
+						pathLabel.setStyle("-fx-background-color: #fceaff; -fx-border-width: 1px; -fx-border-color: #b03ef9");
+						pathLabel.setPadding(new Insets(5, 10, 5, 10));
+					}
 					
 					checkBox.setSelected(instance.getConfig().getOperationIds() != null && instance.getConfig().getOperationIds().indexOf(prettifiedName) >= 0);
 					
@@ -278,7 +348,7 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 					
 					Label operationId = new Label(" (" + prettifiedName + ")");
 					operationId.setStyle("-fx-text-fill: #aaa");
-					box.getChildren().addAll(checkBox, operationId);
+					box.getChildren().addAll(checkBox, methodLabel, pathLabel, operationId);
 					if (method.getDescription() != null && !method.getDescription().trim().isEmpty()) {
 						MainController.getInstance().attachTooltip(operationId, method.getDescription());
 					}
