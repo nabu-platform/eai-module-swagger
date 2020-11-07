@@ -61,7 +61,7 @@ public class SwaggerClientConfiguration {
 		this.charset = charset;
 	}
 	
-	@Field(show = "'basic' # security")
+	@Field(show = "'basic' # security", group = "security")
 	@EnvironmentSpecific
 	public String getUsername() {
 		return username;
@@ -70,7 +70,7 @@ public class SwaggerClientConfiguration {
 		this.username = username;
 	}
 	
-	@Field(show = "'basic' # security")
+	@Field(show = "'basic' # security", group = "security")
 	@EnvironmentSpecific
 	public String getPassword() {
 		return password;
@@ -96,6 +96,7 @@ public class SwaggerClientConfiguration {
 		this.sanitizeOutput = sanitizeOutput;
 	}
 	
+	@Field(group = "security")
 	public List<SecurityType> getSecurity() {
 		return security;
 	}
@@ -195,7 +196,7 @@ public class SwaggerClientConfiguration {
 		this.exposeAllServices = exposeAllServices;
 	}
 	
-	@Field(show = "'basic' # security", comment = "When using NTLM rather then basic authentication, we can provide a domain in the username, enable this to use NTLM-style domain & user")
+	@Field(show = "'basic' # security", comment = "When using NTLM rather then basic authentication, we can provide a domain in the username, enable this to use NTLM-style domain & user", group = "security")
 	public boolean isAllowDomain() {
 		return allowDomain;
 	}
@@ -210,7 +211,7 @@ public class SwaggerClientConfiguration {
 		this.operationIds = operationIds;
 	}
 	
-	@Field(show = "'apiKey' # security && apiQueryName == null", comment = "The name of the header where we inject the API key")
+	@Field(show = "'apiKey' # security && apiQueryName == null", comment = "The name of the header where we inject the API key", group = "security")
 	public String getApiHeaderName() {
 		return apiHeaderName;
 	}
@@ -218,7 +219,7 @@ public class SwaggerClientConfiguration {
 		this.apiHeaderName = apiHeaderName;
 	}
 	
-	@Field(show = "'apiKey' # security && apiHeaderName == null", comment = "The name of the query parameter where we inject the API key")
+	@Field(show = "'apiKey' # security && apiHeaderName == null", comment = "The name of the query parameter where we inject the API key", group = "security")
 	public String getApiQueryName() {
 		return apiQueryName;
 	}
@@ -247,7 +248,7 @@ public class SwaggerClientConfiguration {
 	}
 	
 	@EnvironmentSpecific
-	@Field(show = "'apiKey' # security", comment = "The API header key value")
+	@Field(show = "'apiKey' # security && apiHeaderName != null", comment = "The API key we send along in the header", group = "security")
 	public String getApiHeaderKey() {
 		return apiHeaderKey;
 	}
@@ -256,7 +257,7 @@ public class SwaggerClientConfiguration {
 	}
 	
 	@EnvironmentSpecific
-	@Field(show = "'apiKey' # security", comment = "The API query key value")
+	@Field(show = "'apiKey' # security && apiQueryName != null", comment = "The API key we send along in the query parameter", group = "security")
 	public String getApiQueryKey() {
 		return apiQueryKey;
 	}

@@ -21,6 +21,7 @@ import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.Accordion;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
@@ -29,6 +30,7 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputControl;
 import javafx.scene.control.TitledPane;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
@@ -233,6 +235,16 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 		
 		AnchorPane anchorPane = new AnchorPane();
 		Accordion accordion = displayWithAccordion(instance, anchorPane);
+		
+		// this disappears on redraw!
+//		for (TitledPane singlePane : accordion.getPanes()) {
+//			EAIDeveloperUtils.setPrompt(singlePane.getContent(), "#basePath", instance.getDefinition().getBasePath());
+//			EAIDeveloperUtils.setPrompt(singlePane.getContent(), "#host", instance.getDefinition().getHost());
+//			if (instance.getDefinition().getSchemes() != null && !instance.getDefinition().getSchemes().isEmpty()) {
+//				EAIDeveloperUtils.setPrompt(singlePane.getContent(), "#scheme", instance.getDefinition().getSchemes().contains("https") ? "https" : "http");
+//			}
+//		}
+		
 		vbox.getChildren().add(anchorPane);
 		
 		try {
@@ -272,6 +284,22 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 		
 
 		pane.getChildren().add(scroll);
+	}
+	
+	@Override
+	protected String getDefaultValue(SwaggerClient client, String property) {
+		if (client.getDefinition() != null) {
+			if ("basePath".equals(property)) {
+				return client.getDefinition().getBasePath();
+			}
+			else if ("host".equals(property)) {
+				return client.getDefinition().getHost();
+			}
+			else if ("scheme".equals(property)) {
+				return client.getDefinition().getSchemes().contains("https") ? "https" : "http";
+			}
+		}
+		return super.getDefaultValue(client, property);
 	}
 
 	public static VBox drawOperationIds(SwaggerClient instance) {
