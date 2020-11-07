@@ -35,6 +35,7 @@ public class SwaggerClient extends JAXBArtifact<SwaggerClientConfiguration> {
 							InputStream input = IOUtils.toInputStream(((ReadableResource) child).getReadable());
 							try {
 								SwaggerParser swaggerParser = new SwaggerParser();
+								swaggerParser.setTypeBase(getConfig().getTypeBase());
 								swaggerParser.setTimezone(getConfig().getTimezone());
 								definition = swaggerParser.parse(getId(), input);
 							}

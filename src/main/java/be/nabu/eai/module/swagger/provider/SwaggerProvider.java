@@ -28,6 +28,7 @@ import be.nabu.eai.module.web.application.api.RESTFragmentProvider;
 import be.nabu.eai.repository.DocumentationManager;
 import be.nabu.eai.repository.EAIResourceRepository;
 import be.nabu.eai.repository.api.Documented;
+import be.nabu.eai.repository.api.Node;
 import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.artifacts.jaxb.JAXBArtifact;
 import be.nabu.libs.artifacts.api.Artifact;
@@ -166,7 +167,8 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		SwaggerInfoImpl info = new SwaggerInfoImpl();
 		Documented documented = DocumentationManager.getDocumentation(getRepository(), getId());
 		// title and version are mandatory
-		info.setTitle(documented == null || documented.getTitle() == null ? getId() : documented.getTitle());
+		Node node = getRepository().getNode(application.getId());
+		info.setTitle(documented == null || documented.getTitle() == null ? (node != null && node.getName() != null ? node.getName() : getId()) : documented.getTitle());
 		info.setVersion(getConfig().getVersion() == null ? "1.0" : getConfig().getVersion());
 		String description = documented == null ? null : documented.getDescription();
 		String [] annotations = null;
@@ -321,6 +323,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private List<SwaggerPath> analyzePaths(String parentId, Documented parentDocumentation, ModifiableTypeRegistry registry, List<WebFragment> fragments, String path, WebApplication application, Token token) {
 		List<SwaggerPath> paths = new ArrayList<SwaggerPath>();
+		Node node = parentId == null ? null : application.getRepository().getNode(parentId);
 		for (WebFragment fragment : fragments) {
 			if (fragment instanceof RESTService) {
 				Documented documentation = DocumentationManager.getDocumentation(getRepository(), fragment.getId());
@@ -352,6 +355,13 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						}
 						
 						SwaggerMethodImpl method = new SwaggerMethodImpl();
+						if (node != null) {
+							method.setSummary(node.getSummary());
+							method.setDescription(node.getDescription());
+						}
+						if (node != null && node.getTags() != null) {
+							method.setTags(new ArrayList<String>(node.getTags()));
+						}
 						if (documentation != null) {
 							if (documentation.getTags() != null) {
 								method.setTags(new ArrayList<String>(documentation.getTags()));
@@ -362,6 +372,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						if (parentDocumentation != null && method.getTags() == null && parentDocumentation.getTags() != null) {
 							method.setTags(new ArrayList<String>(parentDocumentation.getTags()));
 						}
+						
 						if (method.getTags() == null) {
 							method.setTags(Arrays.asList(parentId));
 						}

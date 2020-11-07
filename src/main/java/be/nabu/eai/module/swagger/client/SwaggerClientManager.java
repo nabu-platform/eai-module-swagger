@@ -65,6 +65,46 @@ public class SwaggerClientManager extends JAXBArtifactManager<SwaggerClientConfi
 						case FLAT:
 							prettifiedName = SwaggerParser.cleanup(method.getOperationId() == null ? method.getMethod() + path.getPath(): method.getOperationId(), false);
 						break;
+						case PATH:
+							StringBuilder builder = new StringBuilder();
+							StringBuilder by = new StringBuilder();
+							builder.append(method.getMethod().toLowerCase());
+							String resourcePath = path.getPath();
+							// this should always be the case?
+							if (resourcePath.startsWith(artifact.getDefinition().getBasePath())) {
+								resourcePath = resourcePath.substring(artifact.getDefinition().getBasePath().length());
+							}
+							boolean firstBy = true;
+							for (String part : resourcePath.split("/")) {
+								if (part.isEmpty()) {
+									continue;
+								}
+								boolean variable = false;
+								// it's a variable part, we do some additional stuff
+								if (part.startsWith("{") && part.endsWith("}")) {
+									part = part.substring(1, part.length() - 1);
+									// if you have multiple ids, we do an "and" in between them
+									by.append(firstBy ? "By" : "And");
+									part = part.substring(0, 1).toUpperCase() + part.substring(1);
+									variable = true;
+									firstBy = false;
+								}
+								// we want to skip any "." as they will mess up the structure
+								// and replace underscore notation with upper camelcase
+								for (String subPart : part.replace(".", "").split("_")) {
+									if (subPart.isEmpty()) {
+										continue;
+									}
+									(variable ? by : builder).append(subPart.substring(0, 1).toUpperCase() + subPart.substring(1));
+								}
+							}
+							// we want the by at the end, for example if you have GET /accounts/{accountId}/billing/charges
+							// we want it to be "getAccountsBillingChargesByAccountId" rather than "getAccountsByAccountIdBillingCharges"
+							// in extreme cases this can lead to conflicts, in that case, you probably can't use this naming method
+							builder.append(by.toString());
+							// we remove any dots, they can only mess things up
+							prettifiedName = builder.toString();
+						break;
 						default:
 							prettifiedName = SwaggerParser.cleanup(method.getOperationId() == null ? method.getMethod() + path.getPath(): method.getOperationId(), false);
 							if (method.getTags() != null && !method.getTags().isEmpty()) {

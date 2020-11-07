@@ -37,6 +37,7 @@ import javafx.scene.layout.VBox;
 import be.nabu.eai.developer.MainController;
 import be.nabu.eai.developer.api.ArtifactGUIManager;
 import be.nabu.eai.developer.api.PortableArtifactGUIManager;
+import be.nabu.eai.developer.impl.CustomTooltip;
 import be.nabu.eai.developer.managers.base.BaseJAXBGUIManager;
 import be.nabu.eai.developer.managers.util.SimpleProperty;
 import be.nabu.eai.developer.managers.util.SimplePropertyUpdater;
@@ -76,8 +77,10 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 		SwaggerClient swaggerClient = new SwaggerClient(entry.getId(), entry.getContainer(), entry.getRepository());
 		// all new ones should be limited by default
 		swaggerClient.getConfig().setExposeAllServices(false);
+		// we usually want exceptions to be thrown
+		swaggerClient.getConfig().setThrowException(true);
 		// by default we also use tags to group
-		swaggerClient.getConfig().setFolderStructure(FolderStructure.TAG);
+		swaggerClient.getConfig().setFolderStructure(FolderStructure.PATH);
 		for (Value<?> value : values) {
 			if (value.getProperty().getName().equals("Expose All Services")) {
 				Boolean result = (Boolean) value.getValue();
@@ -225,8 +228,9 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 			}
 		});
 		buttons.getChildren().addAll(upload, download, view);
-		vbox.prefWidthProperty().bind(scroll.widthProperty().subtract(25));
 		scroll.setContent(vbox);
+		scroll.setFitToWidth(true);
+		
 		AnchorPane anchorPane = new AnchorPane();
 		Accordion accordion = displayWithAccordion(instance, anchorPane);
 		vbox.getChildren().add(anchorPane);
@@ -272,11 +276,19 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 
 	public static VBox drawOperationIds(SwaggerClient instance) {
 		VBox operationIds = new VBox();
+		
+		CheckBox exposeAll = new CheckBox("Expose all operations");
+		exposeAll.setSelected(instance.getConfig().getExposeAllServices() == null || instance.getConfig().getExposeAllServices());
+		new CustomTooltip("Check this to expose all operations. If left unchecked, you can pick and choose the operations you want to expose").install(exposeAll);
+		operationIds.getChildren().add(exposeAll);
+		VBox.setMargin(exposeAll, new Insets(10));
+		
 		TextField filter = new TextField();
 		filter.setPromptText("Search");
 		operationIds.getChildren().add(filter);
-		VBox.setMargin(filter, new Insets(10, 0, 10, 0));
+		VBox.setMargin(filter, new Insets(10));
 		Map<SwaggerMethod, BooleanProperty> map = new HashMap<SwaggerMethod, BooleanProperty>();
+		Map<String, CheckBox> checkboxMap = new HashMap<String, CheckBox>();
 		if (instance.getDefinition() != null) {
 			for (SwaggerPath path : instance.getDefinition().getPaths()) {
 				for (SwaggerMethod method : path.getMethods()) {
@@ -322,25 +334,34 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 					}
 					
 					checkBox.setSelected(instance.getConfig().getOperationIds() != null && instance.getConfig().getOperationIds().indexOf(prettifiedName) >= 0);
+					checkboxMap.put(prettifiedName, checkBox);
+					
+					if (exposeAll.isSelected()) {
+						checkBox.setSelected(true);
+						checkBox.setDisable(true);
+					}
 					
 					checkBox.selectedProperty().addListener(new ChangeListener<Boolean>() {
 						@Override
 						public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) {
-							// if we didn't set it or set it to true, we expose all, makes no sense to change it
-							if (newValue != null && newValue) {
-								if (instance.getConfig().getOperationIds() == null) {
-									instance.getConfig().setOperationIds(new ArrayList<String>());
+							// if it is disabled, we might be manipulating it from somewhere else, don't persist the value!
+							if (!checkBox.isDisabled()) {
+								// if we didn't set it or set it to true, we expose all, makes no sense to change it
+								if (newValue != null && newValue) {
+									if (instance.getConfig().getOperationIds() == null) {
+										instance.getConfig().setOperationIds(new ArrayList<String>());
+									}
+									if (instance.getConfig().getOperationIds().indexOf(prettifiedName) < 0) {
+										instance.getConfig().getOperationIds().add(prettifiedName);
+										MainController.getInstance().setChanged();
+									}
 								}
-								if (instance.getConfig().getOperationIds().indexOf(prettifiedName) < 0) {
-									instance.getConfig().getOperationIds().add(prettifiedName);
-									MainController.getInstance().setChanged();
-								}
-							}
-							else if (instance.getConfig().getOperationIds() != null) {
-								int indexOf = instance.getConfig().getOperationIds().indexOf(prettifiedName);
-								if (indexOf >= 0) {
-									instance.getConfig().getOperationIds().remove(indexOf);
-									MainController.getInstance().setChanged();
+								else if (instance.getConfig().getOperationIds() != null) {
+									int indexOf = instance.getConfig().getOperationIds().indexOf(prettifiedName);
+									if (indexOf >= 0) {
+										instance.getConfig().getOperationIds().remove(indexOf);
+										MainController.getInstance().setChanged();
+									}
 								}
 							}
 						}
@@ -410,12 +431,32 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 				}
 			}
 		});
+		
+		exposeAll.selectedProperty().addListener(new ChangeListener<Boolean>() {
+			@Override
+			public void changed(ObservableValue<? extends Boolean> arg0, Boolean arg1, Boolean arg2) {
+				if (arg2 != null && arg2) {
+					for (Map.Entry<String, CheckBox> entry : checkboxMap.entrySet()) {
+						entry.getValue().setDisable(true);
+						entry.getValue().setSelected(true);
+					}
+				}
+				else {
+					for (Map.Entry<String, CheckBox> entry : checkboxMap.entrySet()) {
+						entry.getValue().setSelected(instance.getConfig().getOperationIds() != null && instance.getConfig().getOperationIds().indexOf(entry.getKey()) >= 0);
+						entry.getValue().setDisable(false);
+					}
+				}
+				instance.getConfig().setExposeAllServices(arg2 != null && arg2);
+				MainController.getInstance().setChanged();
+			}
+		});
 		return operationIds;
 	}
 
 	@Override
 	protected List<String> getBlacklistedProperties() {
-		return Arrays.asList("operationIds");
+		return Arrays.asList("operationIds", "exposeAllServices");
 	}
 	
 	

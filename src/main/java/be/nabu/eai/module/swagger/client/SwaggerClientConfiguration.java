@@ -39,7 +39,9 @@ public class SwaggerClientConfiguration {
 	private String apiHeaderName, apiQueryName;
 	private FolderStructure folderStructure;
 	private DefinedService overrideProvider;
+	private String typeBase;
 	
+	@Field(comment = "You can opt for using a specific http client, for example if you are working with self-signed certificates for internal infrastructure. If left empty, the default http client will be used.")
 	@Advanced
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
 	public HTTPClientArtifact getHttpClient() {
@@ -49,6 +51,8 @@ public class SwaggerClientConfiguration {
 		this.httpClient = httpClient;
 	}
 	
+	@Advanced
+	@Field(comment = "The charset used to communicate with the swagger provider. The system default will be used if left empty.")
 	@XmlJavaTypeAdapter(value = CharsetAdapter.class)
 	public Charset getCharset() {
 		return charset;
@@ -99,6 +103,7 @@ public class SwaggerClientConfiguration {
 		this.security = security;
 	}
 	
+	@Field(comment = "The host name of the target server that will be called. If left empty this is retrieved from the swagger.")
 	@EnvironmentSpecific
 	public String getHost() {
 		return host;
@@ -107,6 +112,7 @@ public class SwaggerClientConfiguration {
 		this.host = host;
 	}
 	
+	@Field(comment = "The base path for all the calls. If left empty, this is retrieved from the swagger.")
 	@EnvironmentSpecific
 	public String getBasePath() {
 		return basePath;
@@ -115,6 +121,7 @@ public class SwaggerClientConfiguration {
 		this.basePath = basePath;
 	}
 
+	@Field(comment = "The scheme that should be used to communicate with the target server. If left empty, this is retrieved from the swagger.")
 	@EnvironmentSpecific
 	@ValueEnumerator(enumerator = SchemeEnumerator.class)
 	public String getScheme() {
@@ -124,6 +131,8 @@ public class SwaggerClientConfiguration {
 		this.scheme = scheme;
 	}
 
+	@Advanced
+	@Field(comment = "If the remote server returns a code indicating something went wrong and this is enabled, an exception will be thrown.")
 	public boolean isThrowException() {
 		return throwException;
 	}
@@ -131,6 +140,7 @@ public class SwaggerClientConfiguration {
 		this.throwException = throwException;
 	}
 	
+	@Field(comment = "Whether or not we should be lenient when parsing results. If lenient is turned off, any irregularities will lead to exceptions being thrown.")
 	@Advanced
 	public boolean isLenient() {
 		return lenient;
@@ -138,8 +148,8 @@ public class SwaggerClientConfiguration {
 	public void setLenient(boolean lenient) {
 		this.lenient = lenient;
 	}
-	
-	@Advanced
+
+	@Field(comment = "Some operation providers require a user agent to be filled in. If left empty, no user agent will be sent along.")
 	public String getUserAgent() {
 		return userAgent;
 	}
@@ -147,6 +157,8 @@ public class SwaggerClientConfiguration {
 		this.userAgent = userAgent;
 	}
 
+	// this is currently no longer relevant until we have a use for the interfaces (e.g. proxying)
+	@Field(hide = "true")
 	@Advanced
 	public boolean isShowInterfaces() {
 		return showInterfaces;
@@ -165,6 +177,8 @@ public class SwaggerClientConfiguration {
 		}
 	}
 
+	// example of this is the .NET stack used by cogenius -> they can't handle "date" fields so it must be expressed as "dateTime" but the time component _must_ be midnight _in_ CET.
+	@Field(comment = "In some cases, the default timezone used to communicate with the external provider is relevant and can not be correctly sent along in the dateTime string. In that case you can force a specific timezone to be used.")
 	@Advanced
 	@XmlJavaTypeAdapter(value = TimeZoneAdapter.class)
 	public TimeZone getTimezone() {
@@ -212,6 +226,7 @@ public class SwaggerClientConfiguration {
 		this.apiQueryName = apiQueryName;
 	}
 	
+	@Field(comment = "There are a number of ways to structure the operations exposed by this swagger. Once you start using the resulting services, it is highly advised not to change this setting anymore.")
 	@Advanced
 	public FolderStructure getFolderStructure() {
 		return folderStructure;
@@ -220,6 +235,7 @@ public class SwaggerClientConfiguration {
 		this.folderStructure = folderStructure;
 	}
 	
+	@Field(comment = "In some cases the setup in for example PRD is different from that DEV, the overrider allows you to perform more complex rewriting rules based on configuration.")
 	@Advanced
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
 	@InterfaceFilter(implement = "be.nabu.eai.module.swagger.client.api.SwaggerOverrideProvider.overrideFor")
@@ -248,5 +264,13 @@ public class SwaggerClientConfiguration {
 		this.apiQueryKey = apiQueryKey;
 	}
 	
+	@Field(comment = "If the types have long '.' separated names and they all have a same base, you can fill this in and the base will be skipped. Once you start using the types or services, it is highly advised not to change this setting anymore.")
+	@Advanced
+	public String getTypeBase() {
+		return typeBase;
+	}
+	public void setTypeBase(String typeBase) {
+		this.typeBase = typeBase;
+	}
 
 }
