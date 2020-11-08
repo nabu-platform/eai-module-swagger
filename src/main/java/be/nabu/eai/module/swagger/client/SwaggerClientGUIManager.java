@@ -417,6 +417,8 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 								try {
 									((PortableArtifactGUIManager) guiManager).display(MainController.getInstance(), pane, swaggerService);
 									Tab newTab = MainController.getInstance().newTab(swaggerService.getId());
+									// allow to run even if it is not in the tree
+									newTab.setUserData(swaggerService);
 									newTab.setContent(pane);
 								}
 								catch (Exception e) {
