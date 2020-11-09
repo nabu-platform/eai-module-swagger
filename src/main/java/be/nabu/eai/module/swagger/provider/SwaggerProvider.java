@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import be.nabu.eai.api.NamingConvention;
 import be.nabu.eai.module.http.server.HTTPServerArtifact;
 import be.nabu.eai.module.http.server.RepositoryExceptionFormatter.StructuredResponse;
 import be.nabu.eai.module.rest.RESTUtils;
@@ -374,7 +375,9 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						}
 						
 						if (method.getTags() == null) {
-							method.setTags(Arrays.asList(parentId));
+							String partialName = parentId.replaceAll("^.*?\\.([^.]+)$", "$1");
+							partialName = NamingConvention.UPPER_TEXT.apply(NamingConvention.UNDERSCORE.apply(partialName));
+							method.setTags(Arrays.asList(partialName));
 						}
 						method.setMethod(iface.getConfig().getMethod().toString().toLowerCase());
 						method.setConsumes(Arrays.asList("application/json", "application/xml"));
@@ -661,7 +664,9 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 				method.setTags(new ArrayList<String>(parentDocumentation.getTags()));
 			}
 			if (method.getTags() == null) {
-				method.setTags(Arrays.asList(parentId));
+				String partialName = parentId.replaceAll("^.*?\\.([^.]+)$", "$1");
+				partialName = NamingConvention.UPPER_TEXT.apply(NamingConvention.UNDERSCORE.apply(partialName));
+				method.setTags(Arrays.asList(partialName));
 			}
 			method.setMethod(fragment.getMethod().toString().toLowerCase());
 			method.setConsumes(fragment.getConsumes());

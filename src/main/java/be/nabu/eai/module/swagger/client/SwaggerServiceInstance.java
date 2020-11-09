@@ -724,8 +724,11 @@ public class SwaggerServiceInstance implements ServiceInstance {
 			}
 			return output;
 		}
+		catch (ServiceException e) {
+			throw e;
+		}
 		catch (Exception e) {
-			throw new ServiceException(e);
+			throw new ServiceException("SWAGGER-CLIENT-4", "Unexpected error occurred", e);
 		}
 	}
 
