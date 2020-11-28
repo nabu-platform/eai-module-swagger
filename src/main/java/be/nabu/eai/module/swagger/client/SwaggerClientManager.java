@@ -45,7 +45,7 @@ public class SwaggerClientManager extends JAXBArtifactManager<SwaggerClientConfi
 	public List<Entry> addChildren(ModifiableEntry root, SwaggerClient artifact) throws IOException {
 		List<Entry> entries = new ArrayList<Entry>();
 		((EAINode) root.getNode()).setLeaf(false);
-		if (artifact.getDefinition() != null) {
+		if (artifact.getDefinition() != null && artifact.getDefinition().getPaths() != null) {
 			boolean exposeAll = artifact.getConfig().getExposeAllServices() == null || artifact.getConfig().getExposeAllServices();
 			List<String> operationIds = artifact.getConfig().getOperationIds();
 			Set<String> set = new HashSet<String>();

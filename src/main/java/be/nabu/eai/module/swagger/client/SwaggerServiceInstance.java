@@ -377,6 +377,10 @@ public class SwaggerServiceInstance implements ServiceInstance {
 					new MimeHeader("Content-Length", Integer.valueOf(content.length).toString()),
 					new MimeHeader("Content-Type", contentType)
 				);
+				// if we have a content part, we can reopen it
+				if (part instanceof PlainMimeContentPart) {
+					((PlainMimeContentPart) part).setReopenable(true);
+				}
 			}
 			else if (parameters == null) {
 				part = new PlainMimeEmptyPart(null, new MimeHeader("Content-Length", "0"));

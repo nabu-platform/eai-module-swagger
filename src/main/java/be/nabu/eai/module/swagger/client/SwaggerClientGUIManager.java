@@ -21,7 +21,6 @@ import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
 import javafx.scene.control.Accordion;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
@@ -30,12 +29,12 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
-import javafx.scene.control.TextInputControl;
 import javafx.scene.control.TitledPane;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
+
 import be.nabu.eai.developer.MainController;
 import be.nabu.eai.developer.api.ArtifactGUIManager;
 import be.nabu.eai.developer.api.PortableArtifactGUIManager;
@@ -410,20 +409,33 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 						@SuppressWarnings({ "unchecked", "rawtypes" })
 						@Override
 						public void handle(ActionEvent event) {
-							SwaggerService swaggerService = new SwaggerService(instance.getId() + ".services." + prettifiedName, instance, path, method);
-							ArtifactGUIManager<?> guiManager = MainController.getInstance().getGUIManager(swaggerService.getClass());
-							if (guiManager instanceof PortableArtifactGUIManager) {
-								AnchorPane pane = new AnchorPane();
-								try {
-									((PortableArtifactGUIManager) guiManager).display(MainController.getInstance(), pane, swaggerService);
-									Tab newTab = MainController.getInstance().newTab(swaggerService.getId());
-									// allow to run even if it is not in the tree
-									newTab.setUserData(swaggerService);
-									newTab.setContent(pane);
+							SwaggerService swaggerService = null;
+							for (SwaggerService mounted : instance.getRepository().getArtifacts(SwaggerService.class)) {
+								// don't do a reference check, they might be reloaded, do a content check
+								if (mounted.getClient().getId().equals(instance.getId()) && mounted.getPath().getPath().equals(path.getPath()) && mounted.getMethod().getMethod().equals(method.getMethod())) {
+									swaggerService = mounted;
+									break;
 								}
-								catch (Exception e) {
-									MainController.getInstance().notify(e);
+							}
+							if (swaggerService == null) {
+								swaggerService = new SwaggerService("Anonymous Service (" + method.getMethod() + " " + path.getPath() + ")", instance, path, method);
+								ArtifactGUIManager<?> guiManager = MainController.getInstance().getGUIManager(swaggerService.getClass());
+								if (guiManager instanceof PortableArtifactGUIManager) {
+									AnchorPane pane = new AnchorPane();
+									try {
+										((PortableArtifactGUIManager) guiManager).display(MainController.getInstance(), pane, swaggerService);
+										Tab newTab = MainController.getInstance().newTab(swaggerService.getId());
+										// allow to run even if it is not in the tree
+										newTab.setUserData(swaggerService);
+										newTab.setContent(pane);
+									}
+									catch (Exception e) {
+										MainController.getInstance().notify(e);
+									}
 								}
+							}
+							else {
+								MainController.getInstance().open(swaggerService.getId());
 							}
 						}
 					});

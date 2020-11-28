@@ -2,18 +2,23 @@ package be.nabu.eai.module.swagger.client;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 
 import be.nabu.eai.module.swagger.client.api.SwaggerOverrideProvider;
 import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.artifacts.jaxb.JAXBArtifact;
 import be.nabu.eai.repository.util.SystemPrincipal;
+import be.nabu.libs.resources.api.ManageableContainer;
 import be.nabu.libs.resources.api.ReadableResource;
 import be.nabu.libs.resources.api.Resource;
 import be.nabu.libs.resources.api.ResourceContainer;
+import be.nabu.libs.resources.api.WritableResource;
 import be.nabu.libs.services.pojo.POJOUtils;
 import be.nabu.libs.swagger.api.SwaggerDefinition;
 import be.nabu.libs.swagger.parser.SwaggerParser;
 import be.nabu.utils.io.IOUtils;
+import be.nabu.utils.io.api.ByteBuffer;
+import be.nabu.utils.io.api.WritableContainer;
 
 public class SwaggerClient extends JAXBArtifact<SwaggerClientConfiguration> {
 	
@@ -65,5 +70,32 @@ public class SwaggerClient extends JAXBArtifact<SwaggerClientConfiguration> {
 			}
 		}
 		return overrideProvider;
+	}
+	
+	public void load(URI uri) throws IOException {
+		Resource child = getDirectory().getChild("swagger.json");
+		if (child == null) {
+			child = ((ManageableContainer<?>) getDirectory()).create("swagger.json", "application/json");
+		}
+		try {
+			WritableContainer<ByteBuffer> writable = ((WritableResource) child).getWritable();
+			try {
+				InputStream stream = uri.toURL().openStream();
+				try {
+					IOUtils.copyBytes(IOUtils.wrap(stream), writable);
+				}
+				finally {
+					stream.close();
+				}
+			}
+			finally {
+				writable.close();
+			}
+		}
+		// if it fails to load, we remove the swagger.json so it doesn't stay in an empty state
+		catch (Exception e) {
+			((ManageableContainer<?>) getDirectory()).delete("swagger.json");
+			throw new RuntimeException(e);
+		}
 	}
 }
