@@ -14,7 +14,6 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import be.nabu.eai.api.NamingConvention;
-import be.nabu.eai.module.http.server.HTTPServerArtifact;
 import be.nabu.eai.module.http.server.RepositoryExceptionFormatter.StructuredResponse;
 import be.nabu.eai.module.rest.RESTUtils;
 import be.nabu.eai.module.rest.WebMethod;
@@ -188,8 +187,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		definition.setBasePath(getConfig().getBasePath() == null ? "/" : getConfig().getBasePath());
 		definition.setConsumes(Arrays.asList("application/json", "application/xml"));
 		definition.setProduces(definition.getConsumes());
-		HTTPServerArtifact server = application.getConfig().getVirtualHost().getConfig().getServer();
-		Integer port = server.getConfig().isProxied() ? server.getConfig().getProxyPort() : server.getConfig().getPort();
+		Integer port = application.getConfig().getVirtualHost().getPort();
 		
 		if (getConfig().getAdditionalTypes() != null) {
 			TypeRegistryImpl registry = (TypeRegistryImpl) definition.getRegistry();
@@ -213,7 +211,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 			definition.setHost(host + (port == null ? "" : ":" + port));
 		}
 		
-		boolean isSecure = server.isSecure();
+		boolean isSecure = application.getConfig().getVirtualHost().isSecure();
 		
 		// if we explicitly configure a scheme, use that (could be due to ssl offloading or the like)
 		if (getConfig().getScheme() != null) {
@@ -663,6 +661,9 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 			if (parentDocumentation != null && method.getTags() == null && parentDocumentation.getTags() != null) {
 				method.setTags(new ArrayList<String>(parentDocumentation.getTags()));
 			}
+			if (fragment.getTags() != null && !fragment.getTags().isEmpty()) {
+				method.setTags(fragment.getTags());
+			}
 			if (method.getTags() == null) {
 				String partialName = parentId.replaceAll("^.*?\\.([^.]+)$", "$1");
 				partialName = NamingConvention.UPPER_TEXT.apply(NamingConvention.UNDERSCORE.apply(partialName));
@@ -920,4 +921,5 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 			swaggers.clear();
 		}
 	}
+	
 }

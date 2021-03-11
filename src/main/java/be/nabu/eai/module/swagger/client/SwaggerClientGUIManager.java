@@ -94,7 +94,7 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 	}
 
 	public String getCategory() {
-		return "Services";
+		return "REST";
 	}
 	
 	@Override
@@ -295,7 +295,7 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 				return client.getDefinition().getHost();
 			}
 			else if ("scheme".equals(property)) {
-				return client.getDefinition().getSchemes().contains("https") ? "https" : "http";
+				return client.getDefinition() != null && client.getDefinition().getSchemes() != null && client.getDefinition().getSchemes().contains("https") ? "https" : "http";
 			}
 		}
 		return super.getDefaultValue(client, property);

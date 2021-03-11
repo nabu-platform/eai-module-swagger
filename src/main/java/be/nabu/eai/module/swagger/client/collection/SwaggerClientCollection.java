@@ -1,5 +1,6 @@
 package be.nabu.eai.module.swagger.client.collection;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import be.nabu.eai.developer.api.CollectionManager;
@@ -31,7 +32,13 @@ public class SwaggerClientCollection implements CollectionManager {
 	public Node getSummaryView() {
 		List<Button> buttons = EAICollectionUtils.newViewButton(entry, SwaggerClient.class);
 		buttons.add(EAICollectionUtils.newDeleteButton(entry, null));
-		return EAICollectionUtils.newSummaryTile(entry, "swaggerclient-large.png", buttons.toArray(new Button[buttons.size()]));
+		List<Entry> services = new ArrayList<Entry>();
+		for (Entry child : entry) {
+			if (child.isNode() && SwaggerClient.class.isAssignableFrom(child.getNode().getArtifactClass())) {
+				services.addAll(EAICollectionUtils.scanForServices(child));
+			}
+		}
+		return EAICollectionUtils.newSummaryTile(entry, "swaggerclient-large.png", services, buttons);
 	}
 	
 }

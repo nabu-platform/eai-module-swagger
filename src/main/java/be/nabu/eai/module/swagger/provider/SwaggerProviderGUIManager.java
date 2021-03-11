@@ -15,8 +15,9 @@ public class SwaggerProviderGUIManager extends BaseJAXBGUIManager<SwaggerProvide
 		super("Swagger Provider", SwaggerProvider.class, new SwaggerProviderManager(), SwaggerProviderConfiguration.class);
 	}
 
+	@Override
 	public String getCategory() {
-		return "Web";
+		return "REST";
 	}
 
 	@Override
