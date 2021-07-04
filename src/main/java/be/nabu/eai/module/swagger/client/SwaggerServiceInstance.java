@@ -280,16 +280,30 @@ public class SwaggerServiceInstance implements ServiceInstance {
 									}
 								break;
 								case HEADER: 
-									if ("Content-Type".equalsIgnoreCase(parameter.getName())) {
-										contentType = value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class);
+									String headerStringVariable;
+									if (parameter.getElement().getType() instanceof Marshallable) {
+										headerStringVariable = ((Marshallable) parameter.getElement().getType()).marshal(value, parameter.getElement().getProperties());
 									}
 									else {
-										additionalHeaders.add(new MimeHeader(parameter.getName(), value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class)));
+										headerStringVariable = (String) (value instanceof String ? value : ConverterFactory.getInstance().getConverter().convert(value, String.class));
+									}
+									if ("Content-Type".equalsIgnoreCase(parameter.getName())) {
+										contentType = headerStringVariable;
+									}
+									else {
+										additionalHeaders.add(new MimeHeader(parameter.getName(), headerStringVariable));
 									}
 								break;
 								case PATH:
+									String pathStringVariable;
+									if (parameter.getElement().getType() instanceof Marshallable) {
+										pathStringVariable = ((Marshallable) parameter.getElement().getType()).marshal(value, parameter.getElement().getProperties());
+									}
+									else {
+										pathStringVariable = value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class);
+									}
 									path = path.replaceAll("\\{[\\s]*" + Pattern.quote(parameter.getName()) + "\\b[^}]*\\}",
-										URIUtils.encodeURIComponent(Matcher.quoteReplacement(value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class)), false));
+										URIUtils.encodeURIComponent(Matcher.quoteReplacement(pathStringVariable), false));
 								break;
 								case FORMDATA:
 									if (content != null) {
@@ -306,7 +320,14 @@ public class SwaggerServiceInstance implements ServiceInstance {
 										if (format == CollectionFormat.MULTI) {
 											List<String> values = new ArrayList<String>();
 											for (Object child : (Iterable<?>) value) {
-												values.add(child instanceof String ? (String) child : ConverterFactory.getInstance().getConverter().convert(child, String.class));
+												String queryStringVariable;
+												if (parameter.getElement().getType() instanceof Marshallable) {
+													queryStringVariable = ((Marshallable) parameter.getElement().getType()).marshal(value, parameter.getElement().getProperties());
+												}
+												else {
+													queryStringVariable = (String) (child instanceof String ? child : ConverterFactory.getInstance().getConverter().convert(child, String.class));
+												}
+												values.add(queryStringVariable);
 											}
 											if (values.isEmpty()) {
 												continue;
@@ -326,7 +347,14 @@ public class SwaggerServiceInstance implements ServiceInstance {
 												else {
 													builder.append(format.getCharacter());
 												}
-												builder.append(child instanceof String ? (String) child : ConverterFactory.getInstance().getConverter().convert(child, String.class));
+												String queryStringVariable;
+												if (parameter.getElement().getType() instanceof Marshallable) {
+													queryStringVariable = ((Marshallable) parameter.getElement().getType()).marshal(value, parameter.getElement().getProperties());
+												}
+												else {
+													queryStringVariable = (String) (child instanceof String ? child : ConverterFactory.getInstance().getConverter().convert(child, String.class));
+												}
+												builder.append(queryStringVariable);
 											}
 											// nothing in iterable
 											if (first) {
@@ -341,10 +369,24 @@ public class SwaggerServiceInstance implements ServiceInstance {
 										}
 									}
 									else if (parameter.getLocation() == ParameterLocation.FORMDATA) {
-										formParameters.put(parameter.getName(), Arrays.asList(value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class)));
+										String formStringVariable;
+										if (parameter.getElement().getType() instanceof Marshallable) {
+											formStringVariable = ((Marshallable) parameter.getElement().getType()).marshal(value, parameter.getElement().getProperties());
+										}
+										else {
+											formStringVariable = value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class);
+										}
+										formParameters.put(parameter.getName(), Arrays.asList(formStringVariable));
 									}
 									else {
-										queryParameters.put(parameter.getName(), Arrays.asList(value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class)));
+										String otherStringVariable;
+										if (parameter.getElement().getType() instanceof Marshallable) {
+											otherStringVariable = ((Marshallable) parameter.getElement().getType()).marshal(value, parameter.getElement().getProperties());
+										}
+										else {
+											otherStringVariable = value instanceof String ? (String) value : ConverterFactory.getInstance().getConverter().convert(value, String.class);
+										}
+										queryParameters.put(parameter.getName(), Arrays.asList(otherStringVariable));
 									}
 								break;
 							}
@@ -661,7 +703,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 							binding = new FormBinding(unmarshalType, charset);
 						}
 						else if ("application/json".equalsIgnoreCase(responseContentType) || "application/javascript".equalsIgnoreCase(responseContentType) || "application/x-javascript".equalsIgnoreCase(responseContentType)
-								|| "application/problem+json".equalsIgnoreCase(responseContentType)) {
+								|| "application/problem+json".equalsIgnoreCase(responseContentType) || (responseContentType != null && responseContentType.matches("application/[\\w]+\\+json"))) {
 							JSONBinding jsonBinding = new JSONBinding(unmarshalType, charset);
 //							jsonBinding.setIgnoreRootIfArrayWrapper(ValueUtils.contains(MaxOccursProperty.getInstance(), chosenResponse.getElement().getType().getProperties()));
 							jsonBinding.setIgnoreRootIfArrayWrapper(true);

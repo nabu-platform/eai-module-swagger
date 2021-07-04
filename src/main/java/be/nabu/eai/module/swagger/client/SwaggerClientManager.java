@@ -71,7 +71,7 @@ public class SwaggerClientManager extends JAXBArtifactManager<SwaggerClientConfi
 							builder.append(method.getMethod().toLowerCase());
 							String resourcePath = path.getPath();
 							// this should always be the case?
-							if (resourcePath.startsWith(artifact.getDefinition().getBasePath())) {
+							if (artifact.getDefinition().getBasePath() != null && resourcePath.startsWith(artifact.getDefinition().getBasePath())) {
 								resourcePath = resourcePath.substring(artifact.getDefinition().getBasePath().length());
 							}
 							boolean firstBy = true;

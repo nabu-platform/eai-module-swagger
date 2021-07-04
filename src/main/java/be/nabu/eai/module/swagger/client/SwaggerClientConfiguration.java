@@ -1,5 +1,6 @@
 package be.nabu.eai.module.swagger.client;
 
+import java.net.URI;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +21,7 @@ import be.nabu.eai.repository.jaxb.TimeZoneAdapter;
 import be.nabu.libs.services.api.DefinedService;
 import be.nabu.libs.swagger.api.SwaggerSecurityDefinition.SecurityType;
 import be.nabu.libs.types.api.annotation.Field;
+import be.nabu.libs.types.base.UUIDFormat;
 
 @XmlRootElement(name = "swaggerClient")
 public class SwaggerClientConfiguration {
@@ -40,6 +42,10 @@ public class SwaggerClientConfiguration {
 	private FolderStructure folderStructure;
 	private DefinedService overrideProvider;
 	private String typeBase;
+	private URI lastLoadedUri;
+	// if the external system uses a different uuid formatting options, it might be relevant for marshalling!
+	// e.g. eucosys only accepts uuids formatted _with_ the dash
+	private UUIDFormat uuidFormat;
 	
 	@Field(comment = "You can opt for using a specific http client, for example if you are working with self-signed certificates for internal infrastructure. If left empty, the default http client will be used.")
 	@Advanced
@@ -272,6 +278,23 @@ public class SwaggerClientConfiguration {
 	}
 	public void setTypeBase(String typeBase) {
 		this.typeBase = typeBase;
+	}
+	
+	// this just keeps track of the last uri that was loaded, making it easier to "reload" without having to look up the uri
+	@Field(hide = "true")
+	public URI getLastLoadedUri() {
+		return lastLoadedUri;
+	}
+	public void setLastLoadedUri(URI lastLoadedUri) {
+		this.lastLoadedUri = lastLoadedUri;
+	}
+	
+	@Advanced
+	public UUIDFormat getUuidFormat() {
+		return uuidFormat;
+	}
+	public void setUuidFormat(UUIDFormat uuidFormat) {
+		this.uuidFormat = uuidFormat;
 	}
 
 }

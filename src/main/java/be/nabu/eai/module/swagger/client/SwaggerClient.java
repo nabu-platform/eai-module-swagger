@@ -42,6 +42,7 @@ public class SwaggerClient extends JAXBArtifact<SwaggerClientConfiguration> {
 								SwaggerParser swaggerParser = new SwaggerParser();
 								swaggerParser.setTypeBase(getConfig().getTypeBase());
 								swaggerParser.setTimezone(getConfig().getTimezone());
+								swaggerParser.setUuidFormat(getConfig().getUuidFormat());
 								definition = swaggerParser.parse(getId(), input);
 							}
 							finally {

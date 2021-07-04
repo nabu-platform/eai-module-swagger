@@ -18,6 +18,7 @@ import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
+import javafx.event.Event;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -188,6 +189,7 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 									writable.close();
 								}
 							}
+							instance.getConfig().setLastLoadedUri(uri);
 							MainController.getInstance().setChanged();
 							MainController.getInstance().refresh(instance.getId());
 						}
@@ -198,6 +200,43 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 				});
 			}
 		});
+		Button downloadPrevious = new Button("Update from last URI");
+		downloadPrevious.addEventHandler(ActionEvent.ANY, new EventHandler<ActionEvent>() {
+			@Override
+			public void handle(ActionEvent arg0) {
+				try {
+					URI uri = instance.getConfig().getLastLoadedUri();
+					if (uri != null) {
+						if (instance.getDirectory().getChild("swagger.json") != null) {
+							((ManageableContainer<?>) instance.getDirectory()).delete("swagger.json");
+						}
+						Resource child = instance.getDirectory().getChild("swagger.json");
+						if (child == null) {
+							child = ((ManageableContainer<?>) instance.getDirectory()).create("swagger.json", "application/json");
+						}
+						WritableContainer<ByteBuffer> writable = ((WritableResource) child).getWritable();
+						try {
+							InputStream stream = uri.toURL().openStream();
+							try {
+								IOUtils.copyBytes(IOUtils.wrap(stream), writable);
+							}
+							finally {
+								stream.close();
+							}
+						}
+						finally {
+							writable.close();
+						}
+					}
+					MainController.getInstance().setChanged();
+					MainController.getInstance().refresh(instance.getId());
+				}
+				catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		});
+		
 		Button view = new Button("View Swagger");
 		view.addEventHandler(ActionEvent.ANY, new EventHandler<ActionEvent>() {
 			@Override
@@ -215,6 +254,12 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 								editor.setContent("application/javascript", new String(IOUtils.toBytes(readable), "UTF-8"));
 								editor.setReadOnly(true);
 								tab.setContent(editor.getWebView());
+//								editor.subscribe(AceEditor.CHANGE, new EventHandler<Event>() {
+//									@Override
+//									public void handle(Event arg0) {
+//										MainController.getInstance().setChanged(instance.getId());
+//									}
+//								});
 							}
 							MainController.getInstance().activate(tabId);
 						}
@@ -229,6 +274,9 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 			}
 		});
 		buttons.getChildren().addAll(upload, download, view);
+		if (instance.getConfig().getLastLoadedUri() != null) {
+			buttons.getChildren().add(1, downloadPrevious);
+		}
 		scroll.setContent(vbox);
 		scroll.setFitToWidth(true);
 		

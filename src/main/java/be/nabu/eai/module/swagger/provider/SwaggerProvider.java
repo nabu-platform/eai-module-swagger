@@ -358,17 +358,17 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							method.setSummary(node.getSummary());
 							method.setDescription(node.getDescription());
 						}
-						if (node != null && node.getTags() != null) {
+						if (node != null && node.getTags() != null && !node.getTags().isEmpty()) {
 							method.setTags(new ArrayList<String>(node.getTags()));
 						}
 						if (documentation != null) {
-							if (documentation.getTags() != null) {
+							if (documentation.getTags() != null && !documentation.getTags().isEmpty()) {
 								method.setTags(new ArrayList<String>(documentation.getTags()));
 							}
 							method.setSummary(documentation.getTitle());
 							method.setDescription(documentation.getDescription());
 						}
-						if (parentDocumentation != null && method.getTags() == null && parentDocumentation.getTags() != null) {
+						if (parentDocumentation != null && method.getTags() == null && parentDocumentation.getTags() != null && !parentDocumentation.getTags().isEmpty()) {
 							method.setTags(new ArrayList<String>(parentDocumentation.getTags()));
 						}
 						
@@ -652,7 +652,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		if (swaggerPath != null) {
 			SwaggerMethodImpl method = new SwaggerMethodImpl();
 			if (documentation != null) {
-				if (documentation.getTags() != null) {
+				if (documentation.getTags() != null && !documentation.getTags().isEmpty()) {
 					method.setTags(new ArrayList<String>(documentation.getTags()));
 				}
 				method.setSummary(documentation.getTitle());
