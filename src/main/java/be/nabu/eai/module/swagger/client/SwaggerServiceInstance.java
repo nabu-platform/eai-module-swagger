@@ -322,7 +322,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 											for (Object child : (Iterable<?>) value) {
 												String queryStringVariable;
 												if (parameter.getElement().getType() instanceof Marshallable) {
-													queryStringVariable = ((Marshallable) parameter.getElement().getType()).marshal(value, parameter.getElement().getProperties());
+													queryStringVariable = ((Marshallable) parameter.getElement().getType()).marshal(child, parameter.getElement().getProperties());
 												}
 												else {
 													queryStringVariable = (String) (child instanceof String ? child : ConverterFactory.getInstance().getConverter().convert(child, String.class));
@@ -349,7 +349,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 												}
 												String queryStringVariable;
 												if (parameter.getElement().getType() instanceof Marshallable) {
-													queryStringVariable = ((Marshallable) parameter.getElement().getType()).marshal(value, parameter.getElement().getProperties());
+													queryStringVariable = ((Marshallable) parameter.getElement().getType()).marshal(child, parameter.getElement().getProperties());
 												}
 												else {
 													queryStringVariable = (String) (child instanceof String ? child : ConverterFactory.getInstance().getConverter().convert(child, String.class));
