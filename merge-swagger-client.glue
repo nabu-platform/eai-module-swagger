@@ -1,0 +1,153 @@
+result = xml.objectify(file.read("swagger-client.xml"))
+
+tag("REST Client Endpoint")
+
+result/host = parameter(
+	name: "host",
+	category: "Basic",
+	title: null,
+	description: "The remote host to use",
+	type: null,
+	encrypted: false,
+	optional: true,
+	raw: result/host)/current
+	
+result/basePath = parameter(
+	name: "basePath",
+	category: "Basic",
+	title: null,
+	description: "The base path will be prepended before any path configured in the rest clients that use this endpoint",
+	type: null,
+	encrypted: false,
+	optional: true,
+	raw: result/basePath)/current
+	
+result/scheme = parameter(
+	name: "scheme",
+	category: "Basic",
+	title: null,
+	description: "The scheme that is used to communicate with the server",
+	type: null,
+	encrypted: false,
+	optional: true,
+	raw: result/scheme,
+	enumeration: "https", "http")/current
+	
+result/charset = parameter(
+	name: "charset",
+	category: "Basic",
+	title: null,
+	description: "The charset that is used to communicate with the server",
+	type: null,
+	encrypted: false,
+	optional: true,
+	raw: result/charset)/current
+	
+result/httpClient = parameter(
+	name: "httpClient",
+	category: "Basic",
+	title: null,
+	description: "The http client that this rest client uses",
+	type: "artifact",
+	encrypted: false,
+	optional: true,
+	raw: result/httpClient)/current
+	
+result/security = split("[\s]*,[\s]*", parameter(
+	name: "security",
+	category: "Security",
+	title: null,
+	description: "A comma separated list of supported security schemes. Choose from 'basic', 'apiKey', 'oauth2', 'bearer'.",
+	type: null,
+	encrypted: false,
+	optional: true,
+	raw: join(", ", result/security))/current)
+
+result/username = parameter(
+	name: "username",
+	category: "Security",
+	title: null,
+	description: "The username for authentication",
+	type: null,
+	encrypted: false,
+	optional: true,
+	show: "contains(security, 'basic')",
+	raw: result/username)/current
+	
+result/password = parameter(
+	name: "password",
+	category: "Security",
+	title: null,
+	description: "The password for authentication",
+	type: "password",
+	encrypted: false,
+	optional: true,
+	show: "contains(security, 'basic')",
+	raw: result/password)/current
+	
+result/allowDomain = parameter(
+	name: "allowDomain",
+	category: "Security",
+	title: null,
+	description: "Enable this to use NTLM-style domain and user for the username.",
+	type: null,
+	encrypted: false,
+	optional: true,
+	show: "contains(security, 'basic')",
+	raw: result/allowDomain)/current
+	
+result/apiHeaderName = parameter(
+	name: "apiHeaderName",
+	category: "Security",
+	title: null,
+	description: "If you want to pass an API key in the header, set the name of the header here",
+	type: null,
+	encrypted: false,
+	optional: true,
+	show: "contains(security, 'apiKey') && apiQueryName == null",
+	raw: result/apiHeaderName)/current
+	
+result/apiQueryName = parameter(
+	name: "apiQueryName",
+	category: "Security",
+	title: null,
+	description: "If you want to pass an API key in the query parameters, set the name of the query parameter here",
+	type: null,
+	encrypted: false,
+	optional: true,
+	show: "contains(security, 'apiKey') && apiHeaderName == null",
+	raw: result/apiQueryName)/current
+	
+result/apiQueryKey = parameter(
+	name: "apiQueryKey",
+	category: "Security",
+	title: null,
+	description: "The key to pass in the query parameters",
+	type: null,
+	encrypted: false,
+	optional: true,
+	show: "contains(security, 'apiKey') && apiQueryName != null",
+	raw: result/apiQueryKey)/current
+	
+result/apiHeaderKey = parameter(
+	name: "apiHeaderKey",
+	category: "Security",
+	title: null,
+	description: "The key to pass in the header",
+	type: null,
+	encrypted: false,
+	optional: true,
+	show: "contains(security, 'apiKey') && apiHeaderName != null",
+	raw: result/apiHeaderKey)/current
+
+result/supportGzip = parameter(
+	name: "supportGzip",
+	category: null,
+	title: null,
+	description: "Whether or not to use gzip",
+	type: "boolean",
+	encrypted: false,
+	optional: true,
+	raw: result/supportGzip)/current
+
+file.write("swagger-client.xml", xml.stringify(result))
