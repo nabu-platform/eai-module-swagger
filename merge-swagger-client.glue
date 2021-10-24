@@ -1,6 +1,6 @@
 result = xml.objectify(file.read("swagger-client.xml"))
 
-tag("REST Client Endpoint")
+tag("Swagger REST Client")
 
 result/host = parameter(
 	name: "host",
