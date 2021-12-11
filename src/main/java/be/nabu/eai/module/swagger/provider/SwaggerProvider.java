@@ -651,6 +651,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		
 		if (swaggerPath != null) {
 			SwaggerMethodImpl method = new SwaggerMethodImpl();
+			method.setExtensions(fragment.getExtensions());
 			if (documentation != null) {
 				if (documentation.getTags() != null && !documentation.getTags().isEmpty()) {
 					method.setTags(new ArrayList<String>(documentation.getTags()));
