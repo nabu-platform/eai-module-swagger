@@ -26,6 +26,8 @@ import javafx.event.EventHandler;
 
 public class SwaggerClientCollectionFactory implements CollectionManagerFactory {
 
+	private static final String FOLDER_NAME = "integrations"; // used to be: connectors
+	
 	@Override
 	public CollectionManager getCollectionManager(Entry entry) {
 		for (Entry child : entry) {
@@ -87,17 +89,18 @@ public class SwaggerClientCollectionFactory implements CollectionManagerFactory 
 	}
 
 	public static Entry getConnectorsEntry(RepositoryEntry project) throws IOException {
-		Entry child = EAIDeveloperUtils.mkdir(project, "connectors");
+		Entry child = EAIDeveloperUtils.mkdir(project, FOLDER_NAME);
 		if (!child.isCollection()) {
 			CollectionImpl collection = new CollectionImpl();
 			collection.setType("folder");
-			collection.setSubType("connectors");
-			collection.setName("Connectors");
-			collection.setSmallIcon("connector/connector-small.png");
-			collection.setMediumIcon("connector/connector-medium.png");
-			collection.setLargeIcon("connector/connector-large.png");
+			collection.setSubType("integrations");
+			collection.setName("Integrations");
+			collection.setSmallIcon("integration/integration-small.png");
+			collection.setMediumIcon("integration/integration-medium.png");
+			collection.setLargeIcon("integration/integration-large.png");
 			((RepositoryEntry) child).setCollection(collection);
 			((RepositoryEntry) child).saveCollection();
+			EAIDeveloperUtils.updated(child.getId());
 		}
 		return child;
 	}
@@ -107,13 +110,14 @@ public class SwaggerClientCollectionFactory implements CollectionManagerFactory 
 		Entry child = EAIDeveloperUtils.mkdir((RepositoryEntry) getConnectorsEntry(project), normalize);
 		if (!child.isCollection()) {
 			CollectionImpl collection = new CollectionImpl();
-			collection.setType("connector");
+			collection.setType("integration");
 			collection.setSubType("swagger");
 			if (!normalize.equals(name)) {
 				collection.setName(name);
 			}
 			((RepositoryEntry) child).setCollection(collection);
 			((RepositoryEntry) child).saveCollection();
+			EAIDeveloperUtils.updated(child.getId());
 		}
 		return child;
 	}
