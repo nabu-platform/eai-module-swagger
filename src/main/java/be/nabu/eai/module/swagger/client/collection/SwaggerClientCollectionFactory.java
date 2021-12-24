@@ -81,7 +81,7 @@ public class SwaggerClientCollectionFactory implements CollectionManagerFactory 
 				@Override
 				public boolean accept(Entry entry) {
 					Collection collection = entry.getCollection();
-					return collection != null && "folder".equals(collection.getType()) && "connectors".equals(collection.getSubType());
+					return collection != null && "folder".equals(collection.getType()) && "integrations".equals(collection.getSubType());
 				}
 			}));
 		}
@@ -111,7 +111,6 @@ public class SwaggerClientCollectionFactory implements CollectionManagerFactory 
 		if (!child.isCollection()) {
 			CollectionImpl collection = new CollectionImpl();
 			collection.setType("integration");
-			collection.setSubType("swagger");
 			if (!normalize.equals(name)) {
 				collection.setName(name);
 			}
