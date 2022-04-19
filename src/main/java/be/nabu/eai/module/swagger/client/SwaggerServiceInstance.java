@@ -442,7 +442,18 @@ public class SwaggerServiceInstance implements ServiceInstance {
 			
 			// never use gzip if the server is in development mode
 			if (service.getClient().getConfig().getSupportGzip() != null && service.getClient().getConfig().getSupportGzip() && !EAIResourceRepository.isDevelopment()) {
-				part.setHeader(new MimeHeader("Content-Encoding", "gzip"));
+				Long contentLength = MimeUtils.getContentLength(part.getHeaders());
+				// if we don't have a content length, we are already chunking and want to gzip as well
+				// if we have a content length and it is non-zero, we have content that needs gzipping as well
+				if (contentLength == null || contentLength > 0) {
+					part.setHeader(new MimeHeader("Content-Encoding", "gzip"));
+				}
+				// if we have a content-length at this point, replace it with chunked
+				if (contentLength != null && contentLength > 0) {
+					part.removeHeader("Content-Length");
+					part.setHeader(new MimeHeader("Transfer-Encoding", "Chunked"));
+				}
+				// always accept gzip in this case
 				part.setHeader(new MimeHeader("Accept-Encoding", "gzip"));
 			}
 			part.setHeader(new MimeHeader("Host", host));
