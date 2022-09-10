@@ -23,6 +23,7 @@ import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.eai.module.web.application.WebApplicationUtils;
 import be.nabu.eai.module.web.application.WebFragment;
 import be.nabu.eai.module.web.application.WebFragmentProvider;
+import be.nabu.eai.module.web.application.api.DownloadableFragment;
 import be.nabu.eai.module.web.application.api.RESTFragment;
 import be.nabu.eai.module.web.application.api.RESTFragmentProvider;
 import be.nabu.eai.repository.DocumentationManager;
@@ -411,6 +412,9 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						catch (Exception e) {
 							throw new RuntimeException(e);
 						}
+						if (iface.getConfig().isAllowHeaderAsQueryParameter()) {
+							extensions.put("downloadable", "true");
+						}
 						
 						if (iface.getConfig().getRoles() != null && !iface.getConfig().getRoles().isEmpty() && !iface.getConfig().getRoles().equals(Arrays.asList("guest"))) {
 							SwaggerSecuritySettingImpl security = new SwaggerSecuritySettingImpl();
@@ -674,6 +678,11 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 			method.setConsumes(fragment.getConsumes());
 			method.setProduces(fragment.getProduces());
 			method.setOperationId(fragment.getId());
+			Map<String, Object> extensions = new HashMap<String, Object>();
+			
+			if (fragment instanceof DownloadableFragment && ((DownloadableFragment) fragment).isDownloadable()) {
+				extensions.put("downloadable", "true");
+			}
 			
 			List<SwaggerParameter> parameters = new ArrayList<SwaggerParameter>();
 			if (fragment.getHeaderParameters() != null) {
@@ -706,6 +715,9 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 				parameters.add(parameter);
 			}
 			method.setParameters(parameters);
+			if (!extensions.isEmpty()) {
+				method.setExtensions(extensions);
+			}
 			
 			List<SwaggerResponse> responses = new ArrayList<SwaggerResponse>();
 			

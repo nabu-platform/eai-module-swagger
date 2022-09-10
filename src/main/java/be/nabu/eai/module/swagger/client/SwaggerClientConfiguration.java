@@ -46,6 +46,9 @@ public class SwaggerClientConfiguration {
 	// if the external system uses a different uuid formatting options, it might be relevant for marshalling!
 	// e.g. eucosys only accepts uuids formatted _with_ the dash
 	private UUIDFormat uuidFormat;
+	// for some reason some people generate as swagger where the format is set to "uuid" but it is actually not a valid uuid...
+	// for instance sendgrid for some reason uses a valid uuid but prepends it with "d-" making it invalid...
+	private boolean allowUuid = true;
 	
 	@Field(comment = "You can opt for using a specific http client, for example if you are working with self-signed certificates for internal infrastructure. If left empty, the default http client will be used.")
 	@Advanced
@@ -289,6 +292,7 @@ public class SwaggerClientConfiguration {
 		this.lastLoadedUri = lastLoadedUri;
 	}
 	
+	@Field(hide = "!allowUuid")
 	@Advanced
 	public UUIDFormat getUuidFormat() {
 		return uuidFormat;
@@ -296,5 +300,14 @@ public class SwaggerClientConfiguration {
 	public void setUuidFormat(UUIDFormat uuidFormat) {
 		this.uuidFormat = uuidFormat;
 	}
+	
+	@Advanced
+	public boolean isAllowUuid() {
+		return allowUuid;
+	}
+	public void setAllowUuid(boolean allowUuid) {
+		this.allowUuid = allowUuid;
+	}
 
+	
 }
