@@ -407,6 +407,10 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 									split = iface.getConfig().getTemporarySecret().split("/");
 									extensions.put("temporary-secret", split[split.length - 1]);
 								}
+								if (iface.getConfig().getTemporaryCorrelationId() != null && iface.getConfig().getTemporaryCorrelationId().startsWith("=")) {
+									split = iface.getConfig().getTemporaryCorrelationId().split("/");
+									extensions.put("temporary-correlation-id", split[split.length - 1]);
+								}
 							}
 						}
 						catch (Exception e) {
@@ -682,6 +686,18 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 			
 			if (fragment instanceof DownloadableFragment && ((DownloadableFragment) fragment).isDownloadable()) {
 				extensions.put("downloadable", "true");
+				String downloadAuthenticationIdParameter = ((DownloadableFragment) fragment).getDownloadAuthenticationIdParameter();
+				String downloadSecretParameter = ((DownloadableFragment) fragment).getDownloadSecretParameter();
+				String downloadCorrelationIdParameter = ((DownloadableFragment) fragment).getDownloadCorrelationIdParameter();
+				if (downloadAuthenticationIdParameter != null) {
+					extensions.put("temporary-id", downloadAuthenticationIdParameter);
+				}
+				if (downloadSecretParameter != null) {
+					extensions.put("temporary-secret", downloadSecretParameter);
+				}
+				if (downloadCorrelationIdParameter != null) {
+					extensions.put("temporary-correlation-id", downloadCorrelationIdParameter);
+				}
 			}
 			
 			List<SwaggerParameter> parameters = new ArrayList<SwaggerParameter>();
