@@ -18,7 +18,7 @@ import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
-import javafx.event.Event;
+
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -56,6 +56,7 @@ import be.nabu.libs.swagger.api.SwaggerMethod;
 import be.nabu.libs.swagger.api.SwaggerPath;
 import be.nabu.libs.swagger.parser.SwaggerDefinitionImpl;
 import be.nabu.libs.swagger.parser.SwaggerParser;
+import be.nabu.libs.types.base.ValueImpl;
 import be.nabu.libs.validator.api.ValidationMessage;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.io.api.ByteBuffer;
@@ -161,7 +162,7 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 			@Override
 			public void handle(ActionEvent arg0) {
 				SimpleProperty<URI> fileProperty = new SimpleProperty<URI>("URI", URI.class, true);
-				final SimplePropertyUpdater updater = new SimplePropertyUpdater(true, new LinkedHashSet(Arrays.asList(new Property [] { fileProperty })));
+				final SimplePropertyUpdater updater = new SimplePropertyUpdater(true, new LinkedHashSet(Arrays.asList(new Property [] { fileProperty })), new ValueImpl<URI>(fileProperty, instance.getConfig().getLastLoadedUri()));
 				EAIDeveloperUtils.buildPopup(MainController.getInstance(), updater, "Swagger URI", new EventHandler<ActionEvent>() {
 					@Override
 					public void handle(ActionEvent arg0) {
@@ -188,9 +189,12 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 								finally {
 									writable.close();
 								}
+								if (!uri.equals(instance.getConfig().getLastLoadedUri())) {
+									instance.getConfig().setLastLoadedUri(uri);
+									// save it, otherwise it is not persisted it seems
+									MainController.getInstance().save(instance.getId());
+								}
 							}
-							instance.getConfig().setLastLoadedUri(uri);
-							MainController.getInstance().setChanged();
 							MainController.getInstance().refresh(instance.getId());
 						}
 						catch (Exception e) {
@@ -274,8 +278,9 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 			}
 		});
 		buttons.getChildren().addAll(upload, download, view);
-		if (instance.getConfig().getLastLoadedUri() != null) {
-			buttons.getChildren().add(1, downloadPrevious);
+		// taken care off
+		if (instance.getConfig().getLastLoadedUri() != null && false) {
+			buttons.getChildren().add(2, downloadPrevious);
 		}
 		scroll.setContent(vbox);
 		scroll.setFitToWidth(true);
