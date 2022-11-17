@@ -7,6 +7,7 @@ import java.net.URI;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -86,13 +87,17 @@ import be.nabu.libs.types.properties.CollectionFormatProperty;
 import be.nabu.libs.types.properties.MinOccursProperty;
 import be.nabu.libs.types.structure.Structure;
 import be.nabu.utils.io.IOUtils;
+import be.nabu.utils.mime.api.Header;
 import be.nabu.utils.mime.impl.MimeHeader;
+import be.nabu.utils.mime.impl.MimeUtils;
 import be.nabu.utils.mime.impl.PlainMimeContentPart;
+import be.nabu.utils.mime.impl.PlainMimeEmptyPart;
 
 public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> implements WebFragment, DefinedService {
 
 	private Map<String, EventSubscription<?, ?>> subscriptions = new HashMap<String, EventSubscription<?, ?>>();
 	private Map<String, String> swaggers = new HashMap<String, String>();
+	private Map<String, Date> swaggerModified = new HashMap<String, Date>();
 	
 	public SwaggerProvider(String id, ResourceContainer<?> directory, Repository repository) {
 		super(id, directory, repository, "swagger-provider.xml", SwaggerProviderConfiguration.class);
@@ -114,21 +119,46 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						String uriPath = URIUtils.normalize(uri.getPath());
 						if (fullPath.equals(uriPath)) {
 							String swagger;
+							Date modified = null;
 							// if we limit it to the user, it is not cached
 							if (getConfig().isLimitToUser()) {
 								swagger = buildSwagger(artifact, path, WebApplicationUtils.getToken(artifact, request));
 							}
 							else {
 								swagger = getSwagger(artifact, path);
+								modified = getSwaggerModified(artifact, path);
 							}
 							if (swagger == null) {
 								throw new HTTPException(500, "Could not construct swagger");
 							}
+							// check vs a header
+							if (modified != null && !EAIResourceRepository.isDevelopment()) {
+								Header ifSince = MimeUtils.getHeader("If-Modified-Since", request.getContent().getHeaders());
+								if (ifSince != null) {
+									Date parsed = HTTPUtils.parseDate(ifSince.getValue());
+									// no ms precision in header
+									long ifSinceTime = parsed.getTime() / 1000;
+									long builtTime = modified.getTime() / 1000;
+									// not changed
+									if (ifSinceTime <= builtTime) {
+										return new DefaultHTTPResponse(request, 304, HTTPCodes.getMessage(304), new PlainMimeEmptyPart(null, 
+											new MimeHeader("Content-Length", "0"),
+											new MimeHeader("Last-Modified", HTTPUtils.formatDate(modified)),
+											new MimeHeader("Cache-Control", "no-cache, must-revalidate")
+										));			
+									}
+								}
+							}
 							byte [] content = swagger.getBytes(Charset.forName("UTF-8"));
-							return new DefaultHTTPResponse(request, 200, HTTPCodes.getMessage(200), new PlainMimeContentPart(null, IOUtils.wrap(content, true), 
+							PlainMimeContentPart swaggerPart = new PlainMimeContentPart(null, IOUtils.wrap(content, true), 
 								new MimeHeader("Content-Length", "" + content.length),
 								new MimeHeader("Content-Type", "application/json; charset=utf-8")
-							));
+							);
+							if (modified != null && !EAIResourceRepository.isDevelopment()) {
+								swaggerPart.setHeader(new MimeHeader("Last-Modified", HTTPUtils.formatDate(modified)));
+								swaggerPart.setHeader(new MimeHeader("Cache-Control", "no-cache, must-revalidate"));
+							}
+							return new DefaultHTTPResponse(request, 200, HTTPCodes.getMessage(200), swaggerPart);
 						}
 						return null;
 					}
@@ -142,6 +172,11 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		}
 	}
 	
+	public Date getSwaggerModified(WebApplication artifact, String path) {
+		String key = getKey(artifact, path);
+		return swaggerModified.get(key);
+	}
+	
 	public String getSwagger(WebApplication artifact, String path) {
 		String key = getKey(artifact, path);
 		if (!swaggers.containsKey(key) || EAIResourceRepository.isDevelopment()) {
@@ -149,6 +184,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 				try {
 					if (!swaggers.containsKey(key) || EAIResourceRepository.isDevelopment()) {
 						swaggers.put(key, buildSwagger(artifact, null));
+						swaggerModified.put(key, new Date());
 					}
 				}
 				catch (IOException e) {
@@ -325,6 +361,10 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		List<SwaggerPath> paths = new ArrayList<SwaggerPath>();
 		Node node = parentId == null ? null : application.getRepository().getNode(parentId);
 		for (WebFragment fragment : fragments) {
+			if (fragment == null) {
+				continue;
+			}
+			Node fragmentNode = application.getRepository().getNode(fragment.getId());
 			if (fragment instanceof RESTService) {
 				Documented documentation = DocumentationManager.getDocumentation(getRepository(), fragment.getId());
 				RESTService rest = (RESTService) fragment;
@@ -355,21 +395,40 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						}
 						
 						SwaggerMethodImpl method = new SwaggerMethodImpl();
-						if (node != null) {
+						
+						// from the node itself
+						if (fragmentNode != null) {
+							method.setSummary(fragmentNode.getSummary());
+							method.setDescription(fragmentNode.getDescription());
+						}
+						else if (node != null) {
 							method.setSummary(node.getSummary());
 							method.setDescription(node.getDescription());
 						}
-						if (node != null && node.getTags() != null && !node.getTags().isEmpty()) {
+						
+						// get from node itself
+						if (fragmentNode != null && fragmentNode.getTags() != null && !fragmentNode.getTags().isEmpty()) {
+							method.setTags(new ArrayList<String>(fragmentNode.getTags()));
+						}
+						// if not, from the parent
+						else if (node != null && node.getTags() != null && !node.getTags().isEmpty()) {
 							method.setTags(new ArrayList<String>(node.getTags()));
 						}
+						
+						// deprecated!
 						if (documentation != null) {
-							if (documentation.getTags() != null && !documentation.getTags().isEmpty()) {
+							if (documentation.getTags() != null && !documentation.getTags().isEmpty() && (method.getTags() == null || method.getTags().isEmpty())) {
 								method.setTags(new ArrayList<String>(documentation.getTags()));
 							}
-							method.setSummary(documentation.getTitle());
-							method.setDescription(documentation.getDescription());
+							if (method.getSummary() == null) {
+								method.setSummary(documentation.getTitle());
+							}
+							if (method.getDescription() == null) {
+								method.setDescription(documentation.getDescription());
+							}
 						}
-						if (parentDocumentation != null && method.getTags() == null && parentDocumentation.getTags() != null && !parentDocumentation.getTags().isEmpty()) {
+						// also deprecated!
+						if (parentDocumentation != null && parentDocumentation.getTags() != null && !parentDocumentation.getTags().isEmpty() && (method.getTags() == null || method.getTags().isEmpty())) {
 							method.setTags(new ArrayList<String>(parentDocumentation.getTags()));
 						}
 						
@@ -378,7 +437,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							partialName = NamingConvention.UPPER_TEXT.apply(NamingConvention.UNDERSCORE.apply(partialName));
 							method.setTags(Arrays.asList(partialName));
 						}
-						method.setMethod(iface.getConfig().getMethod().toString().toLowerCase());
+						method.setMethod(iface.getConfig().getMethod() == null ? "get" : iface.getConfig().getMethod().toString().toLowerCase());
 						method.setConsumes(Arrays.asList("application/json", "application/xml"));
 						method.setProduces(Arrays.asList("application/json", "application/xml", "text/html"));
 						method.setOperationId(rest.getId());
@@ -672,6 +731,12 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 			}
 			if (fragment.getTags() != null && !fragment.getTags().isEmpty()) {
 				method.setTags(fragment.getTags());
+			}
+			if (fragment.getSummary() != null) {
+				method.setSummary(fragment.getSummary());
+			}
+			if (fragment.getDescription() != null) {
+				method.setDescription(fragment.getDescription());
 			}
 			if (method.getTags() == null) {
 				String partialName = parentId.replaceAll("^.*?\\.([^.]+)$", "$1");

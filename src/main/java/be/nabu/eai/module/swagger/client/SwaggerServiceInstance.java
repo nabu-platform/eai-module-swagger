@@ -11,6 +11,8 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.ws.rs.NotSupportedException;
+
 import nabu.protocols.http.client.Services;
 
 import org.slf4j.Logger;
@@ -204,6 +206,9 @@ public class SwaggerServiceInstance implements ServiceInstance {
 				}
 			}
 			
+			// you can set additional query data (e.g. labels) that do not have keys
+			// this was added at a later point, not sure why this diverges so much from the rest client formatting logic
+			String additionalQueryData = null;
 			Map<String, List<String>> queryParameters = new HashMap<String, List<String>>();
 			Map<String, List<String>> formParameters = new HashMap<String, List<String>>();
 
@@ -310,11 +315,22 @@ public class SwaggerServiceInstance implements ServiceInstance {
 										throw new ServiceException("SWAGGER-1", "Input parameters of type 'body' and 'formData' can not co-exist in the same operation");
 									}
 								case QUERY:
-									if (value instanceof Iterable) {
+									if (value instanceof ComplexContent) {
+										throw new NotSupportedException("Complex content in query parameters is not yet supported");
+									}
+									else if (value instanceof Iterable) {
 										StringBuilder builder = new StringBuilder();
 										boolean first = true;
 										CollectionFormat format = parameter.getCollectionFormat();
 										if (format == null) {
+											format = CollectionFormat.CSV;
+										}
+										if (format == CollectionFormat.MATRIX_EXPLODE) {
+											additionalQueryData = ";";
+											format = CollectionFormat.MULTI;
+										}
+										else if (format == CollectionFormat.MATRIX_IMPLODE) {
+											additionalQueryData = ";";
 											format = CollectionFormat.CSV;
 										}
 										if (format == CollectionFormat.MULTI) {
@@ -341,6 +357,12 @@ public class SwaggerServiceInstance implements ServiceInstance {
 										}
 										else {
 											for (Object child : (Iterable<?>) value) {
+												if (child == null) {
+													continue;
+												}
+												else if (child instanceof ComplexContent) {
+													throw new NotSupportedException("Complex content in query parameters is not yet supported");
+												}
 												if (first) {
 													first = false;
 												}
@@ -364,7 +386,12 @@ public class SwaggerServiceInstance implements ServiceInstance {
 												formParameters.put(parameter.getName(), Arrays.asList(builder.toString()));
 											}
 											else {
-												queryParameters.put(parameter.getName(), Arrays.asList(builder.toString()));
+												if (format == CollectionFormat.LABEL) {
+													additionalQueryData = "." + builder.toString();
+												}
+												else {
+													queryParameters.put(parameter.getName(), Arrays.asList(builder.toString()));
+												}
 											}
 										}
 									}
@@ -521,6 +548,13 @@ public class SwaggerServiceInstance implements ServiceInstance {
 					path += URIUtils.encodeURIComponent(key, false) + "=" + URIUtils.encodeURIComponent(value, false);
 				}
 			}
+			if (additionalQueryData != null) {
+				if (first) {
+					path += "?";
+					first = false;
+				}
+				path += additionalQueryData;
+			}
 			
 			// we support api keys in the header
 			String apiHeaderKey = input == null ? null : (String) input.get("authentication/apiHeaderKey");
@@ -641,7 +675,17 @@ public class SwaggerServiceInstance implements ServiceInstance {
 			}
 			
 			boolean throwException = override != null && override.getThrowException() != null ? override.getThrowException() : service.getClient().getConfig().isThrowException();
-			if (chosenResponse == null || ((response.getCode() < 200 || response.getCode() >= 300) && throwException)) {
+
+			// if we have a response code out of range and we want to throw an exception, we fail
+			boolean fail = (response.getCode() < 200 || response.getCode() >= 300) && throwException;
+			// if we are allowed to proceed but we have no chosen response, check if we are lenient
+			if (!fail && chosenResponse == null) {
+				// if we are lenient AND the response code is 204 (at which point we don't want a response), it is allowed to pass
+				// otherwise, we fail
+				fail = !(service.getClient().getConfig().isLenient() && response.getCode() == 204);
+			}
+			// if we are lenient AND the response code is 204, we don't need a chosen response type
+			if (fail) {
 				byte [] content = null;
 				if (response.getContent() instanceof ContentPart) {
 					ReadableContainer<ByteBuffer> readable = ((ContentPart) response.getContent()).getReadable();
@@ -665,7 +709,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 				Header contentLength = MimeUtils.getHeader("Content-Length", response.getContent().getHeaders());
 				boolean isEmpty = contentLength != null && contentLength.getValue() != null && contentLength.getValue().trim().equals("0");
 				String responseContentType = MimeUtils.getContentType(response.getContent().getHeaders());
-				if (response.getContent() instanceof ContentPart && chosenResponse.getElement() != null && !isEmpty) {
+				if (response.getContent() instanceof ContentPart && chosenResponse != null && chosenResponse.getElement() != null && !isEmpty) {
 					if (chosenResponse.getElement().getType() instanceof SimpleType) {
 						Object unmarshal;
 						if (((SimpleType<?>) chosenResponse.getElement().getType()).getInstanceClass().equals(InputStream.class)) {
@@ -770,7 +814,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 					}
 				}
 				
-				if (chosenResponse.getHeaders() != null) {
+				if (chosenResponse != null && chosenResponse.getHeaders() != null) {
 					for (SwaggerParameter header : chosenResponse.getHeaders()) {
 						Header responseHeader = MimeUtils.getHeader(header.getName(), response.getContent().getHeaders());
 						if (responseHeader != null && responseHeader.getValue() != null) {

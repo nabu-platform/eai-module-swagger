@@ -70,6 +70,10 @@
 			<groupId>be.nabu.libs.swagger</groupId>
 			<artifactId>swagger-formatter</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>be.nabu.libs.openapi</groupId>
+			<artifactId>openapi-parser</artifactId>
+		</dependency>
 		
 		<dependency>
 			<groupId>nabu</groupId>
