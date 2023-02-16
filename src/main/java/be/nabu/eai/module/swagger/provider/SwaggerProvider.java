@@ -60,6 +60,7 @@ import be.nabu.libs.types.base.CollectionFormat;
 import be.nabu.libs.swagger.api.SwaggerParameter.ParameterLocation;
 import be.nabu.libs.swagger.api.SwaggerPath;
 import be.nabu.libs.swagger.api.SwaggerResponse;
+import be.nabu.libs.swagger.api.SwaggerSecurityDefinition;
 import be.nabu.libs.swagger.api.SwaggerSecurityDefinition.SecurityType;
 import be.nabu.libs.swagger.formatter.SwaggerFormatter;
 import be.nabu.libs.swagger.parser.SimpleTypeExtension;
@@ -140,7 +141,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 									long ifSinceTime = parsed.getTime() / 1000;
 									long builtTime = modified.getTime() / 1000;
 									// not changed
-									if (ifSinceTime <= builtTime) {
+									if (builtTime <= ifSinceTime) {
 										return new DefaultHTTPResponse(request, 304, HTTPCodes.getMessage(304), new PlainMimeEmptyPart(null, 
 											new MimeHeader("Content-Length", "0"),
 											new MimeHeader("Last-Modified", HTTPUtils.formatDate(modified)),
@@ -259,19 +260,30 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		}
 		definition.setVersion("2.0");
 		
-		if (application.getConfig().getPasswordAuthenticationService() != null) {
+		ArrayList<SwaggerSecurityDefinition> definitions = new ArrayList<SwaggerSecurityDefinition>();
+		if (application.getConfig().getBearerAuthenticator() != null) {
+			SwaggerSecurityDefinitionImpl security = new SwaggerSecurityDefinitionImpl();
+			security.setType(SecurityType.apiKey);
+			security.setFieldName("Authorization");
+			security.setLocation(ParameterLocation.HEADER);
+			security.setDescription("Use 'Bearer <key>'");
+			security.setName("bearer");
+			definitions.add(security);
+		}
+		if (application.getConfig().getPasswordAuthenticationService() != null || application.getConfig().getTypedAuthenticationService() != null) {
 			SwaggerSecurityDefinitionImpl security = new SwaggerSecurityDefinitionImpl();
 			security.setType(SecurityType.basic);
 			security.setName("basic");
-			definition.setSecurityDefinitions(Arrays.asList(security));
+			definitions.add(security);
 		}
+		definition.setSecurityDefinitions(definitions);
 		
 		definition.setPaths(analyzeAllPaths((ModifiableTypeRegistry) definition.getRegistry(), application, getRelativePath(application.getServerPath(), path), getConfig().isIncludeAll(), application, token));
 		
-		SwaggerSecurityDefinitionImpl swaggerSecurityDefinitionImpl = new SwaggerSecurityDefinitionImpl();
-		swaggerSecurityDefinitionImpl.setType(SecurityType.basic);
-		swaggerSecurityDefinitionImpl.setName("basic");
-		definition.setSecurityDefinitions(Arrays.asList(swaggerSecurityDefinitionImpl));
+//		SwaggerSecurityDefinitionImpl swaggerSecurityDefinitionImpl = new SwaggerSecurityDefinitionImpl();
+//		swaggerSecurityDefinitionImpl.setType(SecurityType.basic);
+//		swaggerSecurityDefinitionImpl.setName("basic");
+//		definition.setSecurityDefinitions(Arrays.asList(swaggerSecurityDefinitionImpl));
 		
 		ByteArrayOutputStream output = new ByteArrayOutputStream();
 		SwaggerFormatter swaggerFormatter = new SwaggerFormatter();
@@ -478,10 +490,13 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						if (iface.getConfig().isAllowHeaderAsQueryParameter()) {
 							extensions.put("downloadable", "true");
 						}
+						if (fragmentNode != null && fragmentNode.getReference() != null) {
+							extensions.put("reference", fragmentNode.getReference());
+						}
 						
 						if (iface.getConfig().getRoles() != null && !iface.getConfig().getRoles().isEmpty() && !iface.getConfig().getRoles().equals(Arrays.asList("guest"))) {
 							SwaggerSecuritySettingImpl security = new SwaggerSecuritySettingImpl();
-							security.setName("basic");
+							security.setName(application.getConfig().getBearerAuthenticator() != null ? "bearer" : "basic");
 							security.setScopes(new ArrayList<String>());
 							method.setSecurity(Arrays.asList(security));
 						}

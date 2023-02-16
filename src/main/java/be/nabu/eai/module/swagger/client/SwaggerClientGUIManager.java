@@ -447,7 +447,7 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 						}
 					});
 					
-					Label operationId = new Label(" (" + prettifiedName + ")");
+					Label operationId = new Label(" (" + (instance.getConfig().getOperationAliases().containsKey(prettifiedName) ? instance.getConfig().getOperationAliases().get(prettifiedName) : prettifiedName) + ")");
 					operationId.setStyle("-fx-text-fill: #aaa");
 					box.getChildren().addAll(checkBox, methodLabel, pathLabel, operationId);
 					if (method.getDescription() != null && !method.getDescription().trim().isEmpty()) {
@@ -456,9 +456,40 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 					HBox spacer = new HBox();
 					HBox.setHgrow(spacer, Priority.ALWAYS);
 					box.getChildren().add(spacer);
-					Button button = new Button();
-					button.setGraphic(MainController.loadFixedSizeGraphic("right-chevron.png", 12));
-					button.addEventHandler(ActionEvent.ANY, new EventHandler<ActionEvent>() {
+					Button editButton = new Button();
+					editButton.setGraphic(MainController.loadFixedSizeGraphic("icons/edit.png", 12));
+					editButton.addEventHandler(ActionEvent.ANY, new EventHandler<ActionEvent>() {
+						@Override
+						public void handle(ActionEvent event) {
+							SimpleProperty<String> nameProperty = new SimpleProperty<String>("Name", String.class, true);
+							final SimplePropertyUpdater updater = new SimplePropertyUpdater(true, new LinkedHashSet(Arrays.asList(new Property [] { nameProperty })), new ValueImpl<String>(nameProperty, instance.getConfig().getOperationAliases().get(prettifiedName)));
+							EAIDeveloperUtils.buildPopup(MainController.getInstance(), updater, "Operation properties", new EventHandler<ActionEvent>() {
+								@Override
+								public void handle(ActionEvent arg0) {
+									try {
+										String name = updater.getValue("Name");
+										if (name != null && name.trim().isEmpty()) {
+											name = null;
+										}
+										if (name == null) {
+											instance.getConfig().getOperationAliases().remove(prettifiedName);
+										}
+										else {
+											instance.getConfig().getOperationAliases().put(prettifiedName, name);
+										}
+										MainController.getInstance().setChanged();
+										operationId.setText(" (" + (name == null ? prettifiedName : name) + ")");
+									}
+									catch (Exception e) {
+										throw new RuntimeException(e);
+									}
+								}
+							});
+						}
+					});
+					Button viewButton = new Button();
+					viewButton.setGraphic(MainController.loadFixedSizeGraphic("right-chevron.png", 12));
+					viewButton.addEventHandler(ActionEvent.ANY, new EventHandler<ActionEvent>() {
 						@SuppressWarnings({ "unchecked", "rawtypes" })
 						@Override
 						public void handle(ActionEvent event) {
@@ -492,7 +523,7 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 							}
 						}
 					});
-					box.getChildren().add(button);
+					box.getChildren().addAll(editButton, viewButton);
 					
 					box.setPadding(new Insets(10));
 					operationIds.getChildren().add(box);
@@ -551,7 +582,7 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 
 	@Override
 	protected List<String> getBlacklistedProperties() {
-		return Arrays.asList("operationIds", "exposeAllServices");
+		return Arrays.asList("operationIds", "exposeAllServices", "operationAliases");
 	}
 	
 	

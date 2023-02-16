@@ -30,6 +30,7 @@ import be.nabu.libs.http.api.client.HTTPClient;
 import be.nabu.libs.http.client.BasicAuthentication;
 import be.nabu.libs.http.client.NTLMPrincipalImpl;
 import be.nabu.libs.http.core.DefaultHTTPRequest;
+import be.nabu.libs.http.core.HTTPRequestAuthenticatorFactory;
 import be.nabu.libs.http.core.HTTPUtils;
 import be.nabu.libs.http.glue.GlueListener;
 import be.nabu.libs.property.ValueUtils;
@@ -496,10 +497,14 @@ public class SwaggerServiceInstance implements ServiceInstance {
 			if (bearerToken == null) {
 				bearerToken = input == null ? null : (String) input.get("authentication/bearerToken");
 			}
+			// if we don't have a bearer token yet but you explicitly configured it as security option, check any configured static bearer token
+			if (bearerToken == null && service.getClient().getConfig().getSecurity() != null && service.getClient().getConfig().getSecurity().contains(SecurityType.bearer)) {
+				bearerToken = service.getClient().getConfig().getBearerToken();
+			}
 			if (bearerToken != null) {
 				part.setHeader(new MimeHeader("Authorization", "Bearer " + bearerToken));
 			}
-
+			
 			final String username = input == null || input.get("authentication/username") == null ? (override == null || override.getUsername() == null ? service.getClient().getConfig().getUsername() : override.getUsername()) : (String) input.get("authentication/username");
 			final String password = input == null || input.get("authentication/password") == null ? (override == null || override.getPassword() == null ? service.getClient().getConfig().getPassword() : override.getPassword()) : (String) input.get("authentication/password");
 
@@ -647,10 +652,23 @@ public class SwaggerServiceInstance implements ServiceInstance {
 			}
 
 			HTTPRequest request = new DefaultHTTPRequest(
-			service.getMethod().getMethod() == null ? "GET" : service.getMethod().getMethod().toUpperCase(),
+				service.getMethod().getMethod() == null ? "GET" : service.getMethod().getMethod().toUpperCase(),
 				path,
 				part
 			);
+			
+			if (override != null && override.getSecurityType() != null) {
+				if (!HTTPRequestAuthenticatorFactory.getInstance().getAuthenticator(override.getSecurityType())
+						.authenticate(request, override.getSecurityContext(), null, false)) {
+					throw new IllegalStateException("Could not authenticate the request");
+				}
+			}
+			else if (service.getClient().getConfig().getSecurityType() != null) {
+				if (!HTTPRequestAuthenticatorFactory.getInstance().getAuthenticator(service.getClient().getConfig().getSecurityType())
+						.authenticate(request, service.getClient().getConfig().getSecurityContext(), null, false)) {
+					throw new IllegalStateException("Could not authenticate the request");
+				}
+			}
 			
 			HTTPClient client = Services.getTransactionable(executionContext, input == null ? null : (String) input.get("transactionId"), service.getClient().getConfig().getHttpClient()).getClient();
 			

@@ -3,7 +3,9 @@ package be.nabu.eai.module.swagger.client;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.TimeZone;
 
 import javax.xml.bind.annotation.XmlRootElement;
@@ -14,10 +16,12 @@ import be.nabu.eai.api.Enumerator;
 import be.nabu.eai.api.EnvironmentSpecific;
 import be.nabu.eai.api.InterfaceFilter;
 import be.nabu.eai.api.ValueEnumerator;
+import be.nabu.eai.developer.impl.HTTPAuthenticatorEnumerator;
 import be.nabu.eai.module.http.client.HTTPClientArtifact;
 import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.eai.repository.jaxb.CharsetAdapter;
 import be.nabu.eai.repository.jaxb.TimeZoneAdapter;
+import be.nabu.eai.repository.util.KeyValueMapAdapter;
 import be.nabu.libs.services.api.DefinedService;
 import be.nabu.libs.swagger.api.SwaggerSecurityDefinition.SecurityType;
 import be.nabu.libs.types.api.annotation.Field;
@@ -28,7 +32,7 @@ public class SwaggerClientConfiguration {
 	
 	private HTTPClientArtifact httpClient;
 	private Charset charset;
-	private String username, password, userAgent, apiHeaderKey, apiQueryKey;
+	private String username, password, userAgent, apiHeaderKey, apiQueryKey, bearerToken;
 	private Boolean supportGzip, sanitizeOutput;
 	private boolean allowDomain;
 	private List<SecurityType> security;
@@ -49,6 +53,13 @@ public class SwaggerClientConfiguration {
 	// for some reason some people generate as swagger where the format is set to "uuid" but it is actually not a valid uuid...
 	// for instance sendgrid for some reason uses a valid uuid but prepends it with "d-" making it invalid...
 	private boolean allowUuid = true;
+	
+	private Map<String, String> operationAliases;
+	
+	// the type of the security needed (depends on whats available)
+	private String securityType;
+	// the security context within that type
+	private String securityContext;
 	
 	@Field(comment = "You can opt for using a specific http client, for example if you are working with self-signed certificates for internal infrastructure. If left empty, the default http client will be used.")
 	@Advanced
@@ -308,6 +319,40 @@ public class SwaggerClientConfiguration {
 	public void setAllowUuid(boolean allowUuid) {
 		this.allowUuid = allowUuid;
 	}
-
+	
+	@Field(show = "'bearer' # security", group = "security", comment = "In some cases the bearer token has a fixed value")
+	public String getBearerToken() {
+		return bearerToken;
+	}
+	public void setBearerToken(String bearerToken) {
+		this.bearerToken = bearerToken;
+	}
+	
+	@Field(group = "security", comment = "Use a pluggable security provider")
+	@ValueEnumerator(enumerator = HTTPAuthenticatorEnumerator.class)
+	public String getSecurityType() {
+		return securityType;
+	}
+	public void setSecurityType(String securityType) {
+		this.securityType = securityType;
+	}
+	@Field(group = "security", comment = "The context for the pluggable security provider")
+	public String getSecurityContext() {
+		return securityContext;
+	}
+	public void setSecurityContext(String securityContext) {
+		this.securityContext = securityContext;
+	}
+	
+	@XmlJavaTypeAdapter(value = KeyValueMapAdapter.class)
+	public Map<String, String> getOperationAliases() {
+		if (operationAliases == null) {
+			operationAliases = new LinkedHashMap<String, String>();
+		}
+		return operationAliases;
+	}
+	public void setOperationAliases(Map<String, String> operationAliases) {
+		this.operationAliases = operationAliases;
+	}
 	
 }

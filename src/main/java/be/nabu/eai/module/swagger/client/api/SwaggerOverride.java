@@ -17,4 +17,6 @@ public interface SwaggerOverride {
 	public List<SecurityType> getSecurity();
 	public Boolean getThrowException();
 	public Charset getCharset();
+	public String getSecurityType();
+	public String getSecurityContext();
 }

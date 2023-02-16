@@ -112,10 +112,15 @@ public class SwaggerClientManager extends JAXBArtifactManager<SwaggerClientConfi
 								prettifiedName = namespace + "." + prettifiedName;
 							}
 					}
+					
 					// regardless of the folderstructure, we use these operation ids
 					String fixedOperationId = SwaggerParser.cleanup(method.getOperationId() == null ? method.getMethod() + path.getPath(): method.getOperationId(), true);
 					if (!exposeAll && (operationIds == null || operationIds.isEmpty() || operationIds.indexOf(fixedOperationId) < 0)) {
 						continue;
+					}
+					// we might have an alias
+					if (artifact.getConfig().getOperationAliases().containsKey(fixedOperationId)) {
+						prettifiedName = artifact.getConfig().getOperationAliases().get(fixedOperationId);
 					}
 					SwaggerProxyInterface iface = new SwaggerProxyInterface(root.getId() + ".interfaces." + prettifiedName, artifact.getDefinition(), path, method, artifact.getConfig().getSecurity());
 					if (artifact.getConfig().isShowInterfaces()) {
