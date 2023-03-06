@@ -570,7 +570,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 				apiHeaderKey = service.getClient().getConfig().getApiHeaderKey();
 			}
 			if (apiHeaderKey != null) {
-				Element<?> element = ((ComplexType) input.getType().get("authentication").getType()).get("apiHeaderKey");
+				Element<?> element = input == null ? null : ((ComplexType) input.getType().get("authentication").getType()).get("apiHeaderKey");
 				String name = service.getClient().getConfig().getApiHeaderName();
 				// the alias is only set if it is defined in the swagger itself
 				if (name == null && element != null) {
