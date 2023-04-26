@@ -336,6 +336,7 @@ public class SwaggerClientConfiguration {
 	public void setSecurityType(String securityType) {
 		this.securityType = securityType;
 	}
+	
 	@Field(group = "security", comment = "The context for the pluggable security provider")
 	public String getSecurityContext() {
 		return securityContext;

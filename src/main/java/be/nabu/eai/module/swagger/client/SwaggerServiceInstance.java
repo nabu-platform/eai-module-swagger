@@ -743,6 +743,13 @@ public class SwaggerServiceInstance implements ServiceInstance {
 								if (((SimpleType<?>) chosenResponse.getElement().getType()).getInstanceClass().equals(byte[].class) && content.startsWith("\"") && content.endsWith("\"")) {
 									content = JSONUnmarshaller.unescape(content.substring(1, content.length() - 1));
 								}
+								// only numbers and booleans are allowed as "native" types without quotes
+								// the rest should have quotes
+								else if (!Number.class.isAssignableFrom(((SimpleType<?>) chosenResponse.getElement().getType()).getInstanceClass()) && !Boolean.class.isAssignableFrom(((SimpleType<?>) chosenResponse.getElement().getType()).getInstanceClass())) {
+									if (content.startsWith("\"") && content.endsWith("\"")) {
+										content = content.substring(1, content.length() - 1);
+									}
+								}
 								unmarshal = ((Unmarshallable<?>) chosenResponse.getElement().getType()).unmarshal(content, chosenResponse.getElement().getProperties());
 							}
 							finally {
