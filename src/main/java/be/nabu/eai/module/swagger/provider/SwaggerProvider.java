@@ -392,7 +392,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						
 						// if we have path parameters and they need to be decamelified, update them in the path as well
 						if (iface.getConfig().getNamingConvention() != null) {
-							for (Element<?> element : iface.getPath()) {
+							for (Element<?> element : iface.getPathParameters()) {
 								String formatted = iface.getConfig().getNamingConvention().apply(element.getName());
 								if (!formatted.equals(element.getName())) {
 									fullPath = fullPath.replaceAll("(\\{[\\s]*)" + element.getName() + "\\b", "$1" + formatted);
@@ -501,7 +501,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							method.setSecurity(Arrays.asList(security));
 						}
 						List<SwaggerParameter> parameters = new ArrayList<SwaggerParameter>();
-						for (Element<?> element : iface.getHeader()) {
+						for (Element<?> element : iface.getRequestHeaderParameters()) {
 							SwaggerParameterImpl parameter = new SwaggerParameterImpl();
 							String name = RESTUtils.fieldToHeader(element.getName());
 							parameter.setName(iface.getConfig().getNamingConvention() != null ? iface.getConfig().getNamingConvention().apply(name) : name);
@@ -513,7 +513,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							parameter.setElement(element);
 							parameters.add(parameter);
 						}
-						for (Element<?> element : iface.getQuery()) {
+						for (Element<?> element : iface.getQueryParameters()) {
 							SwaggerParameterImpl parameter = new SwaggerParameterImpl();
 							parameter.setName(iface.getConfig().getNamingConvention() != null ? iface.getConfig().getNamingConvention().apply(element.getName()) : element.getName());
 							parameter.setLocation(ParameterLocation.QUERY);
@@ -524,7 +524,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							parameter.setElement(element);
 							parameters.add(parameter);
 						}
-						for (Element<?> element : iface.getPath()) {
+						for (Element<?> element : iface.getPathParameters()) {
 							SwaggerParameterImpl parameter = new SwaggerParameterImpl();
 							parameter.setName(iface.getConfig().getNamingConvention() != null ? iface.getConfig().getNamingConvention().apply(element.getName()) : element.getName());
 							parameter.setLocation(ParameterLocation.PATH);
