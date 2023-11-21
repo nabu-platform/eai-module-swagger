@@ -74,14 +74,17 @@ import be.nabu.libs.swagger.parser.SwaggerSecurityDefinitionImpl;
 import be.nabu.libs.swagger.parser.SwaggerSecuritySettingImpl;
 import be.nabu.libs.types.SimpleTypeWrapperFactory;
 import be.nabu.libs.types.TypeRegistryImpl;
+import be.nabu.libs.types.TypeUtils;
 import be.nabu.libs.types.api.ComplexContent;
 import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.DefinedType;
 import be.nabu.libs.types.api.Element;
 import be.nabu.libs.types.api.ModifiableTypeRegistry;
 import be.nabu.libs.types.api.SimpleType;
+import be.nabu.libs.types.api.Type;
 import be.nabu.libs.types.base.ComplexElementImpl;
 import be.nabu.libs.types.base.SimpleElementImpl;
+import be.nabu.libs.types.base.TypeBaseUtils;
 import be.nabu.libs.types.base.ValueImpl;
 import be.nabu.libs.types.java.BeanResolver;
 import be.nabu.libs.types.properties.CollectionFormatProperty;
@@ -372,6 +375,13 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 	private List<SwaggerPath> analyzePaths(String parentId, Documented parentDocumentation, ModifiableTypeRegistry registry, List<WebFragment> fragments, String path, WebApplication application, Token token) {
 		List<SwaggerPath> paths = new ArrayList<SwaggerPath>();
 		Node node = parentId == null ? null : application.getRepository().getNode(parentId);
+		ComplexType structuredErrorResponseType = registry.getComplexType(getId(), "StructuredErrorResponse");
+		if (structuredErrorResponseType == null) {
+			ComplexType structuredResponse = (ComplexType) BeanResolver.getInstance().resolve(StructuredResponse.class);
+			ComplexTypeWrapper wrapper = new ComplexTypeWrapper(structuredResponse, getId(), "StructuredErrorResponse");
+			registry.register(wrapper);
+			structuredErrorResponseType = wrapper;
+		}
 		for (WebFragment fragment : fragments) {
 			if (fragment == null) {
 				continue;
@@ -533,6 +543,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						}
 						List<SwaggerResponse> responses = new ArrayList<SwaggerResponse>();
 
+						Map<Integer, SwaggerResponseImpl> handledResponseCodes = new HashMap<Integer, SwaggerResponseImpl>();
 						if (iface.getConfig().getInputAsStream() != null && iface.getConfig().getInputAsStream()) {
 							SwaggerParameterImpl parameter = new SwaggerParameterImpl();
 							parameter.setName("body");
@@ -561,21 +572,17 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							// if you have input, you can get it wrong
 							SwaggerResponseImpl c400 = new SwaggerResponseImpl();
 							c400.setCode(400);
+							handledResponseCodes.put(400, c400);
 							c400.setDescription("The request is invalid");
-							complexType = registry.getComplexType(getId(), "StructuredErrorResponse");
-							if (complexType == null) {
-								ComplexType structuredResponse = (ComplexType) BeanResolver.getInstance().resolve(StructuredResponse.class);
-								ComplexTypeWrapper wrapper = new ComplexTypeWrapper(structuredResponse, getId(), "StructuredErrorResponse");
-								registry.register(wrapper);
-								complexType = wrapper;
-							}
-							c400.setElement(new ComplexElementImpl("body", complexType, null));
+							c400.setElement(new ComplexElementImpl("body", structuredErrorResponseType, null));
 							responses.add(c400);
 
 							// you can use an unsupported media type
 							SwaggerResponseImpl c415 = new SwaggerResponseImpl();
 							c415.setCode(415);
+							handledResponseCodes.put(415, c415);
 							c415.setDescription(HTTPCodes.getMessage(415));
+							c415.setElement(new ComplexElementImpl("body", structuredErrorResponseType, null));
 							responses.add(c415);
 						}
 						method.setParameters(parameters);
@@ -585,6 +592,8 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							if (application.getRateLimiter() != null) {
 								SwaggerResponseImpl c429 = new SwaggerResponseImpl();
 								c429.setCode(429);
+								c429.setElement(new ComplexElementImpl("body", structuredErrorResponseType, null));
+								handledResponseCodes.put(429, c429);
 								c429.setDescription(HTTPCodes.getMessage(429));
 								responses.add(c429);
 							}
@@ -598,21 +607,48 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						if (method.getSecurity() != null) {
 							SwaggerResponseImpl c401 = new SwaggerResponseImpl();
 							c401.setCode(401);
+							c401.setElement(new ComplexElementImpl("body", structuredErrorResponseType, null));
 							c401.setDescription("The user is not authenticated, after authentication the request can be retried");
 							responses.add(c401);
+							handledResponseCodes.put(401, c401);
 							
 							SwaggerResponseImpl c403 = new SwaggerResponseImpl();
 							c403.setCode(403);
+							c403.setElement(new ComplexElementImpl("body", structuredErrorResponseType, null));
 							c403.setDescription("The user is authenticated but does not have permission to run this service");
 							responses.add(c403);
+							handledResponseCodes.put(403, c403);
 						}
 						
-						for (Integer code : rest.getAdditionalCodes()) {
-							if (!Arrays.asList(400, 401, 403, 429, 415, 412).contains(code)) {
-								SwaggerResponseImpl custom = new SwaggerResponseImpl();
+						Map<Integer, Type> additionalResponseCodes = rest.getAdditionalResponseCodes();
+						for (Integer code : additionalResponseCodes.keySet()) {
+							SwaggerResponseImpl custom;
+							if (!handledResponseCodes.containsKey(code)) {
+								custom = new SwaggerResponseImpl();
 								custom.setCode(code);
 								custom.setDescription(HTTPCodes.getMessage(code));
 								responses.add(custom);
+							}
+							else {
+								custom = handledResponseCodes.get(code);								
+							}
+							// if we have no specific response type, set the default one
+							// the simple type is added to the detail or description
+							if (additionalResponseCodes.get(code) == null || additionalResponseCodes.get(code) instanceof SimpleType) {
+								custom.setElement(new ComplexElementImpl("body", structuredErrorResponseType, null));
+							}
+							else {
+								Structure responseExtension = new Structure();
+								responseExtension.setName("exception");
+								responseExtension.setSuperType(structuredErrorResponseType);
+								for (Element<?> customChild : TypeUtils.getAllChildren((ComplexType) additionalResponseCodes.get(code))) {
+									if (responseExtension.get(customChild.getName()) == null) {
+										responseExtension.add(TypeBaseUtils.clone(customChild, responseExtension));
+									}
+								}
+								ComplexTypeWrapper wrapper = new ComplexTypeWrapper(responseExtension, getId(), rest.getId() + ".StructuredErrorResponse" + code);
+								registry.register(wrapper);
+								custom.setElement(new ComplexElementImpl("body", wrapper, null));
 							}
 						}
 						
@@ -670,6 +706,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						else if (iface.getConfig().getMethod() != WebMethod.GET && (iface.getConfig().isCache() || iface.getConfig().isUseServerCache())) {
 							SwaggerResponseImpl c412 = new SwaggerResponseImpl();
 							c412.setCode(412);
+							c412.setElement(new ComplexElementImpl("body", structuredErrorResponseType, null));
 							c412.setDescription(HTTPCodes.getMessage(412));
 							responses.add(c412);
 						}
@@ -678,14 +715,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						SwaggerResponseImpl c500 = new SwaggerResponseImpl();
 						c500.setCode(500);
 						c500.setDescription("The request could not be processed correctly by the server");
-						ComplexType complexType = registry.getComplexType(getId(), "StructuredErrorResponse");
-						if (complexType == null) {
-							ComplexType structuredResponse = (ComplexType) BeanResolver.getInstance().resolve(StructuredResponse.class);
-							ComplexTypeWrapper wrapper = new ComplexTypeWrapper(structuredResponse, getId(), "StructuredErrorResponse");
-							registry.register(wrapper);
-							complexType = wrapper;
-						}
-						c500.setElement(new ComplexElementImpl("body", complexType, null));
+						c500.setElement(new ComplexElementImpl("body", structuredErrorResponseType, null));
 						responses.add(c500);
 						
 						if (!extensions.isEmpty()) {

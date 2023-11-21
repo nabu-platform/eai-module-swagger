@@ -18,6 +18,7 @@ import be.nabu.eai.api.InterfaceFilter;
 import be.nabu.eai.api.ValueEnumerator;
 import be.nabu.eai.developer.impl.HTTPAuthenticatorEnumerator;
 import be.nabu.eai.module.http.client.HTTPClientArtifact;
+import be.nabu.eai.module.rest.client.RESTEndpointArtifact;
 import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 import be.nabu.eai.repository.jaxb.CharsetAdapter;
 import be.nabu.eai.repository.jaxb.TimeZoneAdapter;
@@ -60,6 +61,8 @@ public class SwaggerClientConfiguration {
 	private String securityType;
 	// the security context within that type
 	private String securityContext;
+	
+	private RESTEndpointArtifact endpoint;
 	
 	@Field(comment = "You can opt for using a specific http client, for example if you are working with self-signed certificates for internal infrastructure. If left empty, the default http client will be used.")
 	@Advanced
@@ -356,4 +359,11 @@ public class SwaggerClientConfiguration {
 		this.operationAliases = operationAliases;
 	}
 	
+	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
+	public RESTEndpointArtifact getEndpoint() {
+		return endpoint;
+	}
+	public void setEndpoint(RESTEndpointArtifact endpoint) {
+		this.endpoint = endpoint;
+	}
 }

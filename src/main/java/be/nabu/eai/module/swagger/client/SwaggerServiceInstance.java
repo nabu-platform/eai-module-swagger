@@ -140,6 +140,9 @@ public class SwaggerServiceInstance implements ServiceInstance {
 		if (schemes == null || schemes.isEmpty()) {
 			schemes = service.getClient().getDefinition().getSchemes();
 		}
+		if ((schemes == null || schemes.isEmpty()) && service.getClient().getConfig().getEndpoint() != null) {
+			return service.getClient().getConfig().getEndpoint().getConfig().getSecure() != null && service.getClient().getConfig().getEndpoint().getConfig().getSecure();
+		}
 		return schemes != null && !schemes.isEmpty() && schemes.contains("https");
 	}
 	
@@ -163,6 +166,9 @@ public class SwaggerServiceInstance implements ServiceInstance {
 					host = service.getClient().getDefinition().getHost();
 				}
 			}
+			if (host == null && service.getClient().getConfig().getEndpoint() != null) {
+				host = service.getClient().getConfig().getEndpoint().getConfig().getHost();
+			}
 			if (host == null) {
 				throw new ServiceException("SWAGGER-CLIENT-1", "No host found for: " + service.getId());
 			}
@@ -177,6 +183,10 @@ public class SwaggerServiceInstance implements ServiceInstance {
 					basePath = service.getClient().getDefinition().getBasePath();
 				}
 			}
+			if (basePath == null && service.getClient().getConfig().getEndpoint() != null) {
+				basePath = service.getClient().getConfig().getEndpoint().getConfig().getBasePath();
+			}
+			
 			// we assume the root path
 			if (basePath == null) {
 				basePath = "/";
@@ -186,6 +196,9 @@ public class SwaggerServiceInstance implements ServiceInstance {
 			Charset charset = service.getClient().getConfig().getCharset();
 			if (charset == null && override != null) {
 				charset = override.getCharset();
+			}
+			if (charset == null && service.getClient().getConfig().getEndpoint() != null) {
+				charset = service.getClient().getConfig().getEndpoint().getConfig().getCharset();
 			}
 			if (charset == null) {
 				charset = Charset.defaultCharset();
@@ -666,6 +679,12 @@ public class SwaggerServiceInstance implements ServiceInstance {
 			else if (service.getClient().getConfig().getSecurityType() != null) {
 				if (!HTTPRequestAuthenticatorFactory.getInstance().getAuthenticator(service.getClient().getConfig().getSecurityType())
 						.authenticate(request, service.getClient().getConfig().getSecurityContext(), null, false)) {
+					throw new IllegalStateException("Could not authenticate the request");
+				}
+			}
+			else if (service.getClient().getConfig().getEndpoint() != null && service.getClient().getConfig().getEndpoint().getConfig().getSecurityType() != null) {
+				if (!HTTPRequestAuthenticatorFactory.getInstance().getAuthenticator(service.getClient().getConfig().getEndpoint().getConfig().getSecurityType())
+						.authenticate(request, service.getClient().getConfig().getEndpoint().getConfig().getSecurityContext(), null, false)) {
 					throw new IllegalStateException("Could not authenticate the request");
 				}
 			}
