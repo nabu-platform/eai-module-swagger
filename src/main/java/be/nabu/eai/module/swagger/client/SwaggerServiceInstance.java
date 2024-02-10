@@ -18,6 +18,7 @@ import nabu.protocols.http.client.Services;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import be.nabu.eai.module.http.client.HTTPClientArtifact;
 import be.nabu.eai.module.rest.WebResponseType;
 import be.nabu.eai.module.swagger.client.api.SwaggerOverride;
 import be.nabu.eai.module.swagger.client.api.SwaggerOverrideProvider;
@@ -583,7 +584,10 @@ public class SwaggerServiceInstance implements ServiceInstance {
 				apiHeaderKey = service.getClient().getConfig().getApiHeaderKey();
 			}
 			if (apiHeaderKey != null) {
-				Element<?> element = input == null ? null : ((ComplexType) input.getType().get("authentication").getType()).get("apiHeaderKey");
+				Element<?> element = null;
+				if (input != null && input.getType().get("authentication") != null) {
+					element = ((ComplexType) input.getType().get("authentication").getType()).get("apiHeaderKey");
+				}
 				String name = service.getClient().getConfig().getApiHeaderName();
 				// the alias is only set if it is defined in the swagger itself
 				if (name == null && element != null) {
@@ -689,7 +693,11 @@ public class SwaggerServiceInstance implements ServiceInstance {
 				}
 			}
 			
-			HTTPClient client = Services.getTransactionable(executionContext, input == null ? null : (String) input.get("transactionId"), service.getClient().getConfig().getHttpClient()).getClient();
+			HTTPClientArtifact httpClient = service.getClient().getConfig().getHttpClient();
+			if (httpClient == null && service.getClient().getConfig().getEndpoint() != null) {
+				httpClient = service.getClient().getConfig().getEndpoint().getConfig().getHttpClient();
+			}
+			HTTPClient client = Services.getTransactionable(executionContext, input == null ? null : (String) input.get("transactionId"), httpClient).getClient();
 			
 			boolean secure = override != null && override.getScheme() != null ? override.getScheme().equals("https") : isSecure();
 			HTTPResponse response = client.execute(request, principal, secure, true);

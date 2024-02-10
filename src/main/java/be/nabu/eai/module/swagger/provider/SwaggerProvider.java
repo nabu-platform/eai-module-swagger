@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import be.nabu.eai.api.NamingConvention;
-import be.nabu.eai.module.http.server.RepositoryExceptionFormatter.StructuredResponse;
+import be.nabu.eai.module.http.server.StandardizedErrorBase;
 import be.nabu.eai.module.rest.RESTUtils;
 import be.nabu.eai.module.rest.WebMethod;
 import be.nabu.eai.module.rest.provider.RESTService;
@@ -377,7 +377,8 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		Node node = parentId == null ? null : application.getRepository().getNode(parentId);
 		ComplexType structuredErrorResponseType = registry.getComplexType(getId(), "StructuredErrorResponse");
 		if (structuredErrorResponseType == null) {
-			ComplexType structuredResponse = (ComplexType) BeanResolver.getInstance().resolve(StructuredResponse.class);
+//			ComplexType structuredResponse = (ComplexType) BeanResolver.getInstance().resolve(StructuredResponse.class);
+			ComplexType structuredResponse = (ComplexType) BeanResolver.getInstance().resolve(StandardizedErrorBase.class);
 			ComplexTypeWrapper wrapper = new ComplexTypeWrapper(structuredResponse, getId(), "StructuredErrorResponse");
 			registry.register(wrapper);
 			structuredErrorResponseType = wrapper;
