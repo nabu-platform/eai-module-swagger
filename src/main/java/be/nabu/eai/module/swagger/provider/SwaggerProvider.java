@@ -505,6 +505,10 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							extensions.put("reference", fragmentNode.getReference());
 						}
 						
+						if (iface.getConfig().isStubbed() && EAIResourceRepository.isDevelopment()) {
+							extensions.put("stubbed", "true");
+						}
+						
 						if (iface.getConfig().getRoles() != null && !iface.getConfig().getRoles().isEmpty() && !iface.getConfig().getRoles().equals(Arrays.asList("guest"))) {
 							SwaggerSecuritySettingImpl security = new SwaggerSecuritySettingImpl();
 							security.setName(application.getConfig().getBearerAuthenticator() != null ? "bearer" : "basic");
