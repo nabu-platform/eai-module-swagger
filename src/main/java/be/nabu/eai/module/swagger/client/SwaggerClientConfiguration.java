@@ -55,7 +55,7 @@ public class SwaggerClientConfiguration {
 	// for instance sendgrid for some reason uses a valid uuid but prepends it with "d-" making it invalid...
 	private boolean allowUuid = true;
 	
-	private Map<String, String> operationAliases;
+	private Map<String, String> operationAliases, typeAliases;
 	
 	// the type of the security needed (depends on whats available)
 	private String securityType;
@@ -357,6 +357,18 @@ public class SwaggerClientConfiguration {
 	}
 	public void setOperationAliases(Map<String, String> operationAliases) {
 		this.operationAliases = operationAliases;
+	}
+	
+	@Field(group = "typeMapping")
+	@XmlJavaTypeAdapter(value = KeyValueMapAdapter.class)
+	public Map<String, String> getTypeAliases() {
+		if (typeAliases == null) {
+			typeAliases = new LinkedHashMap<String, String>();
+		}
+		return typeAliases;
+	}
+	public void setTypeAliases(Map<String, String> typeAliases) {
+		this.typeAliases = typeAliases;
 	}
 	
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)

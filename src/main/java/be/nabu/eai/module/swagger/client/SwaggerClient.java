@@ -52,6 +52,7 @@ public class SwaggerClient extends JAXBArtifact<SwaggerClientConfiguration> {
 //								else if (parsed.get("swagger") != null) {
 								else {
 									SwaggerParser swaggerParser = new SwaggerParser();
+									swaggerParser.setTypeMapping(getConfig().getTypeAliases());
 									swaggerParser.setAllowUuid(getConfig().isAllowUuid());
 									swaggerParser.setTypeBase(getConfig().getTypeBase());
 									swaggerParser.setTimezone(getConfig().getTimezone());

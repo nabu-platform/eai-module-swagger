@@ -56,6 +56,8 @@ import be.nabu.libs.swagger.api.SwaggerMethod;
 import be.nabu.libs.swagger.api.SwaggerPath;
 import be.nabu.libs.swagger.parser.SwaggerDefinitionImpl;
 import be.nabu.libs.swagger.parser.SwaggerParser;
+import be.nabu.libs.types.api.ComplexType;
+import be.nabu.libs.types.api.DefinedType;
 import be.nabu.libs.types.base.ValueImpl;
 import be.nabu.libs.validator.api.ValidationMessage;
 import be.nabu.utils.io.IOUtils;
@@ -354,6 +356,20 @@ public class SwaggerClientGUIManager extends BaseJAXBGUIManager<SwaggerClientCon
 		return super.getDefaultValue(client, property);
 	}
 
+	public static VBox drawTypeMapping(SwaggerClient client) {
+		VBox typeMapping = new VBox();
+		
+		for (String namespace : client.getDefinition().getRegistry().getNamespaces()) {
+			for (ComplexType type : client.getDefinition().getRegistry().getComplexTypes(namespace)) {
+				if (type instanceof DefinedType) {
+					
+				}
+			}
+		}
+		
+		return typeMapping;
+	}
+	
 	public static VBox drawOperationIds(SwaggerClient instance) {
 		VBox operationIds = new VBox();
 		
