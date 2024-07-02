@@ -66,6 +66,7 @@ import be.nabu.libs.types.binding.json.JSONUnmarshaller;
 import be.nabu.libs.types.binding.xml.XMLBinding;
 import be.nabu.libs.types.properties.AliasProperty;
 import be.nabu.libs.types.properties.MaxOccursProperty;
+import be.nabu.libs.types.properties.MinOccursProperty;
 import be.nabu.libs.types.structure.Structure;
 import be.nabu.libs.types.structure.StructureGenerator;
 import be.nabu.utils.io.IOUtils;
@@ -241,6 +242,20 @@ public class SwaggerServiceInstance implements ServiceInstance {
 							continue;
 						}
 						Object value = ((ComplexContent) parameters).get(parameter.getElement().getName());
+						
+						if (parameter.getLocation() == ParameterLocation.BODY && value == null && parameter.getElement().getType() instanceof ComplexType) {
+							// check if its mandatory
+							Value<Integer> minOccurs = parameter.getElement().getProperty(MinOccursProperty.getInstance());
+							if (minOccurs == null || minOccurs.getValue() > 0) {
+								if (parameter.getElement().getType().isList()) {
+									value = new ArrayList();
+								}
+								else {
+									value = ((ComplexType) parameter.getElement().getType()).newInstance();
+								}
+							}
+						}
+						
 						if (value != null) {
 							switch (parameter.getLocation()) {
 								case BODY:
