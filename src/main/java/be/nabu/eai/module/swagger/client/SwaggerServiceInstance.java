@@ -57,6 +57,7 @@ import be.nabu.libs.types.api.Marshallable;
 import be.nabu.libs.types.api.SimpleType;
 import be.nabu.libs.types.api.Unmarshallable;
 import be.nabu.libs.types.base.ComplexElementImpl;
+import be.nabu.libs.types.base.TypeBaseUtils;
 import be.nabu.libs.types.binding.api.MarshallableBinding;
 import be.nabu.libs.types.binding.api.UnmarshallableBinding;
 import be.nabu.libs.types.binding.api.Window;
@@ -69,6 +70,7 @@ import be.nabu.libs.types.properties.MaxOccursProperty;
 import be.nabu.libs.types.properties.MinOccursProperty;
 import be.nabu.libs.types.structure.Structure;
 import be.nabu.libs.types.structure.StructureGenerator;
+import be.nabu.libs.types.structure.StructureInstance;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.io.api.ByteBuffer;
 import be.nabu.utils.io.api.ReadableContainer;
@@ -273,8 +275,29 @@ public class SwaggerServiceInstance implements ServiceInstance {
 									else if (value instanceof byte[]) {
 										content = (byte[]) value;
 									}
-									else if (parameter.getElement().getType().isList()) {
-										throw new RuntimeException("Array inputs are not yet supported");
+									// @2024-08-14: we noticed that simple type arrays at the root were failing in the _next_ else if (so not being detected as list)
+									// we updated list detection but reduced it to only capture simple types because complex types already seem to have support for root arrays
+									else if (parameter.getElement().getType().isList(parameter.getElement().getProperties()) && parameter.getElement().getType() instanceof SimpleType) {
+										// we have array support in json
+										if (requestType == null || requestType == WebResponseType.JSON) {
+											Structure wrapper = new Structure();
+											wrapper.setName("wrapper");
+											wrapper.add(TypeBaseUtils.clone(parameter.getElement(), wrapper));
+											StructureInstance wrapperInstance = wrapper.newInstance();
+											wrapperInstance.set(parameter.getElement().getName(), value);
+											JSONBinding binding = new JSONBinding(wrapper, charset);
+											binding.setIgnoreRootIfArrayWrapper(true);
+											ByteArrayOutputStream output = new ByteArrayOutputStream();
+											binding.marshal(output, wrapperInstance);
+											content = output.toByteArray();
+											if (requestType == null) {
+												requestType = WebResponseType.JSON;
+											}
+											contentType = requestType.getMimeType();
+										}
+										else {
+											throw new RuntimeException("Array inputs are not yet supported");
+										}
 									}
 									else if (parameter.getElement().getType() instanceof SimpleType) {
 										SimpleType<?> type = (SimpleType<?>) parameter.getElement().getType();

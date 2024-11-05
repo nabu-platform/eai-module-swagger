@@ -62,6 +62,7 @@ import be.nabu.libs.swagger.api.SwaggerPath;
 import be.nabu.libs.swagger.api.SwaggerResponse;
 import be.nabu.libs.swagger.api.SwaggerSecurityDefinition;
 import be.nabu.libs.swagger.api.SwaggerSecurityDefinition.SecurityType;
+import be.nabu.libs.swagger.api.SwaggerTag;
 import be.nabu.libs.swagger.formatter.SwaggerFormatter;
 import be.nabu.libs.swagger.parser.SimpleTypeExtension;
 import be.nabu.libs.swagger.parser.SwaggerDefinitionImpl;
@@ -72,6 +73,7 @@ import be.nabu.libs.swagger.parser.SwaggerPathImpl;
 import be.nabu.libs.swagger.parser.SwaggerResponseImpl;
 import be.nabu.libs.swagger.parser.SwaggerSecurityDefinitionImpl;
 import be.nabu.libs.swagger.parser.SwaggerSecuritySettingImpl;
+import be.nabu.libs.swagger.parser.SwaggerTagImpl;
 import be.nabu.libs.types.SimpleTypeWrapperFactory;
 import be.nabu.libs.types.TypeRegistryImpl;
 import be.nabu.libs.types.TypeUtils;
@@ -220,6 +222,21 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 				annotations = annotationBlock.split("[\r\n]+");
 			}
 		}
+		if (documented != null) {
+			List<Documented> fragments = documented.getFragments();
+			if (fragments != null && !fragments.isEmpty()) {
+				List<SwaggerTag> tags = new ArrayList<SwaggerTag>();
+				for (Documented fragment : fragments) {
+					if (fragment.getTitle() != null && fragment.getDescription() != null) {
+						SwaggerTagImpl tag = new SwaggerTagImpl();
+						tag.setName(fragment.getTitle());
+						tag.setDescription(fragment.getDescription());
+						tags.add(tag);
+					}
+				}
+				definition.setTags(tags);
+			}
+		}
 		info.setDescription(description);
 		info.setTermsOfService(getConfig().getTermsOfService());
 		definition.setInfo(info);
@@ -290,6 +307,8 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 		
 		ByteArrayOutputStream output = new ByteArrayOutputStream();
 		SwaggerFormatter swaggerFormatter = new SwaggerFormatter();
+		// in development we add documentation
+		swaggerFormatter.setIncludeDocumentation(EAIResourceRepository.isDevelopment());
 		swaggerFormatter.setExpandInline(true);
 		swaggerFormatter.setAllowDefinedTypeReferences(true);
 		swaggerFormatter.format(definition, output);
