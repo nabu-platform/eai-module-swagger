@@ -496,7 +496,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							partialName = NamingConvention.UPPER_TEXT.apply(NamingConvention.UNDERSCORE.apply(partialName));
 							method.setTags(Arrays.asList(partialName));
 						}
-						method.setMethod(iface.getConfig().getMethod() == null ? "get" : iface.getConfig().getMethod().toString().toLowerCase());
+						method.setMethod(iface.getMethod() == null ? "get" : iface.getMethod().toLowerCase());
 						method.setConsumes(Arrays.asList("application/json", "application/xml"));
 						method.setProduces(Arrays.asList("application/json", "application/xml", "text/html"));
 						method.setOperationId(rest.getId());
