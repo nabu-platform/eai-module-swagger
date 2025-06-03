@@ -36,6 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import be.nabu.eai.module.http.client.HTTPClientArtifact;
+import be.nabu.eai.module.rest.WebMethod;
 import be.nabu.eai.module.rest.WebResponseType;
 import be.nabu.eai.module.swagger.client.api.SwaggerOverride;
 import be.nabu.eai.module.swagger.client.api.SwaggerOverrideProvider;
@@ -306,6 +307,9 @@ public class SwaggerServiceInstance implements ServiceInstance {
 											binding.setIgnoreRootIfArrayWrapper(true);
 											ByteArrayOutputStream output = new ByteArrayOutputStream();
 											binding.marshal(output, wrapperInstance);
+											// for PATCH services we want to explicitly set "null" values for optional fields if we mapped it
+											// TODO: might want to allow the user to set this explicitly for non-PATCH methods, e.g. in case of wrong method usage (PUT vs PATCH)
+											binding.setMarshalExplicitNullValues("PATCH".equalsIgnoreCase(service.getMethod().getMethod()));
 											content = output.toByteArray();
 											if (requestType == null) {
 												requestType = WebResponseType.JSON;
@@ -346,6 +350,9 @@ public class SwaggerServiceInstance implements ServiceInstance {
 												JSONBinding jsonBinding = new JSONBinding(bodyContent.getType(), charset);
 												// if the maxOccurs is _on_ the type itself, we have a root array
 												jsonBinding.setIgnoreRootIfArrayWrapper(ValueUtils.contains(MaxOccursProperty.getInstance(), parameter.getElement().getType().getProperties()));
+												// for PATCH services we want to explicitly set "null" values for optional fields if we mapped it
+												// TODO: might want to allow the user to set this explicitly for non-PATCH methods, e.g. in case of wrong method usage (PUT vs PATCH)
+												jsonBinding.setMarshalExplicitNullValues("PATCH".equalsIgnoreCase(service.getMethod().getMethod()));
 												binding = jsonBinding;
 												break;
 										}
