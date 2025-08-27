@@ -62,6 +62,7 @@ import be.nabu.libs.http.api.HTTPResponse;
 import be.nabu.libs.http.core.DefaultHTTPResponse;
 import be.nabu.libs.http.core.HTTPUtils;
 import be.nabu.libs.http.server.HTTPServerUtils;
+import be.nabu.libs.property.ValueUtils;
 import be.nabu.libs.property.api.Value;
 import be.nabu.libs.resources.URIUtils;
 import be.nabu.libs.resources.api.ResourceContainer;
@@ -106,6 +107,7 @@ import be.nabu.libs.types.base.SimpleElementImpl;
 import be.nabu.libs.types.base.TypeBaseUtils;
 import be.nabu.libs.types.base.ValueImpl;
 import be.nabu.libs.types.java.BeanResolver;
+import be.nabu.libs.types.properties.AliasProperty;
 import be.nabu.libs.types.properties.CollectionFormatProperty;
 import be.nabu.libs.types.properties.MinOccursProperty;
 import be.nabu.libs.types.structure.Structure;
@@ -435,7 +437,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							continue;
 						}
 						
-						String fullPath = getRelativePath(path, iface.getConfig().getPath() == null || iface.getConfig().getPath().trim().isEmpty() ? rest.getId() : iface.getConfig().getPath());
+						String fullPath = getRelativePath(path, iface.getPath() == null || iface.getPath().trim().isEmpty() ? rest.getId() : iface.getPath());
 						
 						// if we have path parameters and they need to be decamelified, update them in the path as well
 						if (iface.getConfig().getNamingConvention() != null) {
@@ -552,9 +554,12 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							method.setSecurity(Arrays.asList(security));
 						}
 						List<SwaggerParameter> parameters = new ArrayList<SwaggerParameter>();
-						for (Element<?> element : iface.getRequestHeaderParameters()) {
+						for (Element<?> element : TypeUtils.getAllChildren(iface.getRequestHeaderParameters())) {
 							SwaggerParameterImpl parameter = new SwaggerParameterImpl();
-							String name = RESTUtils.fieldToHeader(element.getName());
+							String name = ValueUtils.getValue(AliasProperty.getInstance(), element.getProperties());
+							if (name == null) {
+								name = RESTUtils.fieldToHeader(element.getName());
+							}
 							parameter.setName(iface.getConfig().getNamingConvention() != null ? iface.getConfig().getNamingConvention().apply(name) : name);
 							parameter.setLocation(ParameterLocation.HEADER);
 							if (element.getType().isList(element.getProperties())) {
@@ -564,7 +569,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							parameter.setElement(element);
 							parameters.add(parameter);
 						}
-						for (Element<?> element : iface.getQueryParameters()) {
+						for (Element<?> element : TypeUtils.getAllChildren(iface.getQueryParameters())) {
 							SwaggerParameterImpl parameter = new SwaggerParameterImpl();
 							parameter.setName(iface.getConfig().getNamingConvention() != null ? iface.getConfig().getNamingConvention().apply(element.getName()) : element.getName());
 							parameter.setLocation(ParameterLocation.QUERY);
@@ -575,7 +580,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							parameter.setElement(element);
 							parameters.add(parameter);
 						}
-						for (Element<?> element : iface.getPathParameters()) {
+						for (Element<?> element : TypeUtils.getAllChildren(iface.getPathParameters())) {
 							SwaggerParameterImpl parameter = new SwaggerParameterImpl();
 							parameter.setName(iface.getConfig().getNamingConvention() != null ? iface.getConfig().getNamingConvention().apply(element.getName()) : element.getName());
 							parameter.setLocation(ParameterLocation.PATH);
@@ -585,7 +590,7 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						List<SwaggerResponse> responses = new ArrayList<SwaggerResponse>();
 
 						Map<Integer, SwaggerResponseImpl> handledResponseCodes = new HashMap<Integer, SwaggerResponseImpl>();
-						if (iface.getConfig().getInputAsStream() != null && iface.getConfig().getInputAsStream()) {
+						if (iface.isInputAsStream()) {
 							SwaggerParameterImpl parameter = new SwaggerParameterImpl();
 							parameter.setName("body");
 							parameter.setLocation(ParameterLocation.BODY);
@@ -598,13 +603,14 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 							parameter.setElement(new SimpleElementImpl("body", binaryType, null));
 							parameters.add(parameter);
 						}
-						else if (iface.getConfig().getInput() != null) {
+						else if (iface.getRequestBody() instanceof DefinedType) {
 							SwaggerParameterImpl parameter = new SwaggerParameterImpl();
 							parameter.setName("body");
 							parameter.setLocation(ParameterLocation.BODY);
-							ComplexType complexType = registry.getComplexType(getId(), iface.getConfig().getInput().getId());
+							String requestBodyId = ((DefinedType) iface.getRequestBody()).getId();
+							ComplexType complexType = registry.getComplexType(getId(), requestBodyId);
 							if (complexType == null) {
-								complexType = new ComplexTypeWrapper((ComplexType) iface.getConfig().getInput(), getId(), iface.getConfig().getInput().getId());
+								complexType = new ComplexTypeWrapper(iface.getRequestBody(), getId(), requestBodyId);
 								registry.register(complexType);
 							}
 							parameter.setElement(new ComplexElementImpl("body", complexType, (ComplexType) null));
@@ -694,11 +700,11 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 						}
 						
 						// there is some content
-						if ((iface.getConfig().getOutputAsStream() != null && iface.getConfig().getOutputAsStream()) || iface.getConfig().getOutput() != null || iface.getConfig().getMethod() == WebMethod.GET) {
+						if (iface.isOutputAsStream() || iface.getResponseBody() != null || "GET".equalsIgnoreCase(iface.getMethod())) {
 							SwaggerResponseImpl c200 = new SwaggerResponseImpl();
 							c200.setCode(200);
 							c200.setDescription("The request was successful");
-							if (iface.getConfig().getOutputAsStream() != null && iface.getConfig().getOutputAsStream()) {
+							if (iface.isOutputAsStream()) {
 								method.setProduces(Arrays.asList("application/octet-stream"));
 								SimpleType<?> binaryType = registry.getSimpleType(getId(), "binary");
 								if (binaryType == null) {
@@ -707,23 +713,38 @@ public class SwaggerProvider extends JAXBArtifact<SwaggerProviderConfiguration> 
 								}
 								c200.setElement(new SimpleElementImpl("body", binaryType, null));
 							}
-							else if (iface.getConfig().getOutput() != null) {
-								ComplexType complexType = registry.getComplexType(getId(), iface.getConfig().getOutput().getId());
+							else if (iface.getResponseBody() instanceof DefinedType) {
+								String id = ((DefinedType) iface.getResponseBody()).getId();
+								ComplexType complexType = registry.getComplexType(getId(), id);
 								if (complexType == null) {
-									complexType = new ComplexTypeWrapper((ComplexType) iface.getConfig().getOutput(), getId(), iface.getConfig().getOutput().getId());
+									complexType = new ComplexTypeWrapper((ComplexType) iface.getResponseBody(), getId(), id);
 									registry.register(complexType);
 								}
 								c200.setElement(new ComplexElementImpl("body", complexType, (ComplexType) null));
 							}
-							if (iface.getConfig().getResponseHeaders() != null) {
+							if (iface.getResponseHeaderParameters() != null) {
 								c200.setHeaders(new ArrayList<SwaggerParameter>());
-								for (String header : iface.getConfig().getResponseHeaders().split("[\\s]*,[\\s]*")) {
+								for (Element<?> element : TypeUtils.getAllChildren(iface.getResponseHeaderParameters())) {
+									String name = ValueUtils.getValue(AliasProperty.getInstance(), element.getProperties());
+									if (name == null) {
+										name = element.getName();
+									}
 									SwaggerParameterImpl headerParameter = new SwaggerParameterImpl();
-									headerParameter.setName(header);
-									headerParameter.setElement(new SimpleElementImpl(header, SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), null));
+									headerParameter.setName(name);
+									headerParameter.setElement(new SimpleElementImpl(name, SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), null));
 									c200.getHeaders().add(headerParameter);
 								}
 							}
+							// DEPRECATED!!
+//							else if (iface.getConfig().getResponseHeaders() != null) {
+//								c200.setHeaders(new ArrayList<SwaggerParameter>());
+//								for (String header : iface.getConfig().getResponseHeaders().split("[\\s]*,[\\s]*")) {
+//									SwaggerParameterImpl headerParameter = new SwaggerParameterImpl();
+//									headerParameter.setName(header);
+//									headerParameter.setElement(new SimpleElementImpl(header, SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), null));
+//									c200.getHeaders().add(headerParameter);
+//								}
+//							}
 							responses.add(c200);
 						}
 						

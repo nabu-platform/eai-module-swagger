@@ -40,6 +40,7 @@ import be.nabu.libs.types.base.SimpleElementImpl;
 import be.nabu.libs.types.base.ValueImpl;
 import be.nabu.libs.types.java.BeanResolver;
 import be.nabu.libs.types.properties.AliasProperty;
+import be.nabu.libs.types.properties.CommentProperty;
 import be.nabu.libs.types.properties.MaxOccursProperty;
 import be.nabu.libs.types.properties.MinOccursProperty;
 import be.nabu.libs.types.properties.ScopeProperty;
@@ -104,6 +105,12 @@ public class SwaggerProxyInterface implements DefinedServiceInterface {
 			}
 			input.add(new ComplexElementImpl("authentication", authentication, input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
 		}
+		
+		Structure security = new Structure();
+		security.setName("security");
+		security.add(new SimpleElementImpl<String>("type",  SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), security, new ValueImpl<String>(CommentProperty.getInstance(), "Configure the security type dynamically"), new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+		security.add(new SimpleElementImpl<String>("context",  SimpleTypeWrapperFactory.getInstance().getWrapper().wrap(String.class), security, new ValueImpl<String>(CommentProperty.getInstance(), "Configure the security context dynamically"), new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0)));
+		input.add(new ComplexElementImpl("security", security, input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0), new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0), new ValueImpl<Scope>(ScopeProperty.getInstance(), Scope.PRIVATE)));
 		
 		input.add(new ComplexElementImpl("headers", (ComplexType) BeanResolver.getInstance().resolve(Header.class), input, new ValueImpl<Integer>(MinOccursProperty.getInstance(), 0), new ValueImpl<Integer>(MaxOccursProperty.getInstance(), 0),
 			new ValueImpl<Scope>(ScopeProperty.getInstance(), Scope.PRIVATE)));

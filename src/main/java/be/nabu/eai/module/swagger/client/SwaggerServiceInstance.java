@@ -736,23 +736,28 @@ public class SwaggerServiceInstance implements ServiceInstance {
 				part
 			);
 			
-			if (override != null && override.getSecurityType() != null) {
-				if (!HTTPRequestAuthenticatorFactory.getInstance().getAuthenticator(override.getSecurityType())
-						.authenticate(request, override.getSecurityContext(), null, false)) {
-					throw new IllegalStateException("Could not authenticate the request");
-				}
+			String securityType = null, securityContext = null;
+
+			if (input != null && input.get("security") != null && ((ComplexContent) input.get("security")).get("type") != null) {
+				securityType = (String) ((ComplexContent) input.get("security")).get("type");
+				securityContext = (String) ((ComplexContent) input.get("security")).get("context");
+			}
+			else if (override != null && override.getSecurityType() != null) {
+				securityType = override.getSecurityType();
+				securityContext = override.getSecurityContext();
 			}
 			else if (service.getClient().getConfig().getSecurityType() != null) {
-				if (!HTTPRequestAuthenticatorFactory.getInstance().getAuthenticator(service.getClient().getConfig().getSecurityType())
-						.authenticate(request, service.getClient().getConfig().getSecurityContext(), null, false)) {
-					throw new IllegalStateException("Could not authenticate the request");
-				}
+				securityType = service.getClient().getConfig().getSecurityType();
+				securityContext = service.getClient().getConfig().getSecurityContext();
 			}
 			else if (service.getClient().getConfig().getEndpoint() != null && service.getClient().getConfig().getEndpoint().getConfig().getSecurityType() != null) {
-				if (!HTTPRequestAuthenticatorFactory.getInstance().getAuthenticator(service.getClient().getConfig().getEndpoint().getConfig().getSecurityType())
-						.authenticate(request, service.getClient().getConfig().getEndpoint().getConfig().getSecurityContext(), null, false)) {
-					throw new IllegalStateException("Could not authenticate the request");
-				}
+				securityType = service.getClient().getConfig().getEndpoint().getConfig().getSecurityType();
+				securityContext = service.getClient().getConfig().getEndpoint().getConfig().getSecurityContext();
+			}
+			
+			if (securityType != null && !HTTPRequestAuthenticatorFactory.getInstance().getAuthenticator(securityType)
+					.authenticate(request, securityContext, null, false)) {
+				throw new IllegalStateException("Could not authenticate the request");
 			}
 			
 			HTTPClientArtifact httpClient = service.getClient().getConfig().getHttpClient();
