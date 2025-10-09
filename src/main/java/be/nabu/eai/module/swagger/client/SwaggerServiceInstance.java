@@ -357,7 +357,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 												break;
 										}
 										ByteArrayOutputStream output = new ByteArrayOutputStream();
-										binding.marshal(output, bodyContent);
+										binding.marshal(output, bodyContent, parameter.getElement().getProperties());
 										content = output.toByteArray();
 									}
 								break;
@@ -410,7 +410,12 @@ public class SwaggerServiceInstance implements ServiceInstance {
 											additionalQueryData = ";";
 											format = CollectionFormat.CSV;
 										}
-										if (format == CollectionFormat.MULTI) {
+										// in theory deepObject styling should NOT occur on a simple array type because it is not specified in the spec
+										// in the wild we've seen stripe has a string array "expand" which is marked with deepObject styling (https://docs.stripe.com/api/expanding_objects?lang=curl)
+										// each iteration is formatted like this: expand[]=test1&expand[]=test2
+										// it _seems_ that there are a number of libraries that use this syntax simply to indicate that expand is a list (because they have no definitions.....................)
+										// if we ever encounter different behavior we may need to add a configuration toggle somewhere
+										if (format == CollectionFormat.MULTI || format == CollectionFormat.DEEP_OBJECT) {
 											List<String> values = new ArrayList<String>();
 											for (Object child : (Iterable<?>) value) {
 												String queryStringVariable;
@@ -425,11 +430,15 @@ public class SwaggerServiceInstance implements ServiceInstance {
 											if (values.isEmpty()) {
 												continue;
 											}
+											String parameterName = parameter.getName();
+											if (format == CollectionFormat.DEEP_OBJECT) {
+												parameterName += "[]";
+											}
 											if (parameter.getLocation() == ParameterLocation.FORMDATA) {
-												formParameters.put(parameter.getName(), values);
+												formParameters.put(parameterName, values);
 											}
 											else {
-												queryParameters.put(parameter.getName(), values);
+												queryParameters.put(parameterName, values);
 											}
 										}
 										else {
