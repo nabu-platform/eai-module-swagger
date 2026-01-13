@@ -324,7 +324,7 @@ public class SwaggerServiceInstance implements ServiceInstance {
 										SimpleType<?> type = (SimpleType<?>) parameter.getElement().getType();
 										if (type instanceof Marshallable) {
 											String marshal = ((Marshallable) type).marshal(value, parameter.getElement().getProperties());
-											value = marshal.getBytes(charset);
+											content = marshal.getBytes(charset);
 										}
 										else {
 											throw new RuntimeException("Non-marshallable simple type inputs are not yet supported");
