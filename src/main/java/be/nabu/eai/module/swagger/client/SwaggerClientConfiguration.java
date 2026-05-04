@@ -44,6 +44,7 @@ import be.nabu.libs.services.api.DefinedService;
 import be.nabu.libs.swagger.api.SwaggerSecurityDefinition.SecurityType;
 import be.nabu.libs.types.api.annotation.Field;
 import be.nabu.libs.types.base.UUIDFormat;
+import be.nabu.utils.security.EncryptionXmlAdapter;
 
 @XmlRootElement(name = "swaggerClient")
 public class SwaggerClientConfiguration {
@@ -111,6 +112,7 @@ public class SwaggerClientConfiguration {
 	}
 	
 	@Field(show = "'basic' # security", group = "security")
+	@XmlJavaTypeAdapter(value = EncryptionXmlAdapter.class)
 	@EnvironmentSpecific
 	public String getPassword() {
 		return password;
@@ -288,6 +290,7 @@ public class SwaggerClientConfiguration {
 	}
 	
 	@EnvironmentSpecific
+	@XmlJavaTypeAdapter(value = EncryptionXmlAdapter.class)
 	@Field(show = "'apiKey' # security && apiHeaderName != null", comment = "The API key we send along in the header", group = "security")
 	public String getApiHeaderKey() {
 		return apiHeaderKey;
@@ -297,6 +300,7 @@ public class SwaggerClientConfiguration {
 	}
 	
 	@EnvironmentSpecific
+	@XmlJavaTypeAdapter(value = EncryptionXmlAdapter.class)
 	@Field(show = "'apiKey' # security && apiQueryName != null", comment = "The API key we send along in the query parameter", group = "security")
 	public String getApiQueryKey() {
 		return apiQueryKey;

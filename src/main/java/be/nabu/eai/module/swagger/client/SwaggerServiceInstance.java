@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import be.nabu.eai.module.http.client.HTTPClientArtifact;
 import be.nabu.eai.module.rest.WebMethod;
 import be.nabu.eai.module.rest.WebResponseType;
+import be.nabu.eai.module.rest.client.RESTData;
 import be.nabu.eai.module.swagger.client.api.SwaggerOverride;
 import be.nabu.eai.module.swagger.client.api.SwaggerOverrideProvider;
 import be.nabu.eai.repository.EAIResourceRepository;
@@ -819,7 +820,13 @@ public class SwaggerServiceInstance implements ServiceInstance {
 						}
 					}
 				}
-				throw new ServiceException("REST-CLIENT-3", "Invalid response object returned from the server: [" + response.getCode() + "] " + response.getMessage() + (content == null ? "" : "\n" + new String(content)));
+				ServiceException serviceException = new ServiceException("REST-CLIENT-3", "Invalid response object returned from the server: [" + response.getCode() + "] " + response.getMessage() + (content == null ? "" : "\n" + new String(content)));
+				RESTData restData = new RESTData();
+				restData.setHost(host);
+				restData.setPath(path);
+				restData.setMethod(request.getMethod());
+				serviceException.setData(restData);
+				throw serviceException;
 			}
 			
 			ComplexContent output = service.getServiceInterface().getOutputDefinition().newInstance();
