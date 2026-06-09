@@ -37,7 +37,8 @@ public class SwaggerClientArtifactFragmentManager extends BaseNodeMetadataArtifa
 	@Override
 	public List<ArtifactFragment> listFragments(SwaggerClient artifact) {
 		List<ArtifactFragment> fragments = new ArrayList<ArtifactFragment>(getSharedFragments(artifact));
-		boolean editable = EAIResourceRepository.getInstance().getEntry(artifact.getId()) instanceof ResourceEntry;
+		Entry entry = EAIResourceRepository.getInstance().getEntry(artifact.getId());
+		boolean editable = entry instanceof ResourceEntry && entry.isEditable();
 		fragments.add(new ResourceFragment(artifact, CONFIGURATION_PATH, XML_CONTENT_TYPE, ARTIFACT_TYPE, editable));
 		if (artifact.getDirectory().getChild(DEFINITION_PATH) instanceof ReadableResource) {
 			fragments.add(new ResourceFragment(artifact, DEFINITION_PATH, JSON_CONTENT_TYPE, "definition", editable));
